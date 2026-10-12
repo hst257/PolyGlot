@@ -7,7 +7,7 @@ from .parser import Parser
 from .semantics import Analyzer
 from .ir import Lowerer
 from .codegen import generate
-from .artifact import validate, ArtifactError
+from .artifact import dumps, ArtifactError
 from .diagnostics import PolyglotError, Diagnostic
 
 
@@ -41,7 +41,7 @@ def compile_source(text: str, filename: str = "program.poly") -> dict:
         functions = Lowerer(source, analyzer).lower(tree)
         stages["ir"] = serializable(functions)
         artifact = generate(functions, symbols)
-        validate(artifact)
+        dumps(artifact)
         stages["bytecode"] = artifact
         return {"ok": True, "diagnostics": [], "stages": stages, "artifact": artifact}
     except PolyglotError as exc:

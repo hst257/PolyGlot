@@ -7,6 +7,7 @@ Polyglot defines one statically checked language with borrowed syntax. It does n
 | Capability | Python-inspired | C++/Java-inspired |
 |---|---|---|
 | Variables | `x = 3` | `int x = 3;`, `double`, `bool`, `boolean`, `String` |
+| Arrays | `values = [1, 2]`, `values[i]`, `len(values)` | `int values[2] = {1, 2};`, `int[] values = new int[2];` |
 | Functions | `def add(a: int, b: int) -> int:` | `int add(int a, int b) { ... }` |
 | Conditions | `if`, `elif`, `else` with suites | `if (...)`, `else if (...)`, `else` with braces |
 | While | `while condition:` | `while (condition) { ... }` |
@@ -51,7 +52,21 @@ Strings support concatenation with strings, equality and lexicographic ordering.
 
 Three-part loops support optional declaration/assignment initializer, optional Boolean condition, and optional assignment/compound-assignment/`i++`/`i--` update. Missing condition means true. `continue` runs the update; `break` skips it. Increment/decrement outside the update position is unsupported.
 
-Functions are top-level and require annotated parameters and return types. Python-style void functions use `-> void`. Forward calls and recursion work. Parameters are passed by value. Reject invalid arity/types, missing value returns, and value returns from void functions. Return checking is conservative: a loop alone does not prove every path returns. Functions are not first-class values; nested functions and overloading are unsupported.
+Functions are top-level and require annotated parameters and return types. Python-style void functions use `-> void`. Forward calls and recursion work. Primitive parameters are passed by value; array reference values are copied, sharing the same mutable array. Reject invalid arity/types, missing value returns, and value returns from void functions. Return checking is conservative: a loop alone does not prove every path returns. Functions are not first-class values; nested functions and overloading are unsupported.
+
+## One-dimensional arrays
+
+Array types append `[]` to a primitive type, including aliases. Supported declarations include `values = [1, 2]`, `int values[2] = {1, 2};`, `int values[] = {1, 2};`, and `int[] values = [1, 2];`. Brace literals are supported only in explicit declaration initializers. Literals allow multiline contents and trailing commas. Each evaluation creates a fresh array object.
+
+Infer the common element type of nonempty literals; numeric mixtures widen to float. Other heterogeneous elements, nested arrays, void elements and implicit whole-array conversions are rejected. In a known typed context, `float[] values = [1, 2];` widens the literal elements; assigning an existing `int[]` to a `float[]` fails because mutable array types are invariant. Empty literals need an explicit declaration or an expected parameter/return/previous binding type.
+
+`int values[n];` and `new int[n]` allocate a fixed-length array, initializing elements to `0`; other defaults are `0.0`, `false`, and `""`. An unsized declaration without an initializer (`int[] values;`) remains uninitialized. Length expressions evaluate once. A sized initializer must match its declared length; literal mismatches are diagnosed statically, dynamic mismatches at runtime.
+
+Indexing requires an integer; negative indexes and indexes at or beyond length fail at runtime. `values[i] = value`, `+=`, and `-=` check element compatibility. Evaluate the array reference and index once, validate bounds, then evaluate the right-hand side. Compound assignment captures the old element before right-hand-side evaluation. `len(array)` returns its element count.
+
+Assignment, argument passing and returns share array references; element writes are visible through aliases. Rebinding a variable or parameter changes that binding only. Objects cannot resize; rebinding to a new object of the same element type may change the binding's length. Array arithmetic, comparisons, slicing, general increment/decrement and multidimensional arrays are unsupported. Whole-array output uses JSON-style formatting, with quoted strings and lowercase Booleans.
+
+The per-array limit is 1000 elements; a VM execution may allocate up to 100,000 total elements (empty arrays count as one allocation unit). Source/artifact/output limits also apply. Generated artifacts must fit the same 5 MB limit enforced by the loader.
 
 ## Output
 
@@ -61,4 +76,4 @@ Integers print in decimal, floats in Python's finite float representation, Boole
 
 ## Deferred features
 
-C `printf`, JavaScript and BASIC extensions, unannotated functions, multi-error recovery and optimization are not enabled. Arrays, classes, pointers, imports, exceptions and external libraries are unsupported. Block nesting is limited to 100; calls/output accept at most 1000 arguments. Python's integer text-conversion limits can constrain unusually large literals/output; arithmetic still does not use fixed-width integers.
+C `printf`, JavaScript and BASIC extensions, unannotated functions, multi-error recovery and optimization are not enabled. Multidimensional arrays, other collections, classes, pointers, imports, exceptions and external libraries are unsupported. Block nesting is limited to 100; calls/output accept at most 1000 arguments. Python's integer text-conversion limits can constrain unusually large literals/output; arithmetic still does not use fixed-width integers.

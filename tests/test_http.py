@@ -68,3 +68,14 @@ def test_worker_wall_timeout_keeps_server_usable(server):
     assert result["diagnostics"][0]["code"] == "R002"
     server.worker_timeout = 8
     assert json.loads(request(server, "/api/run", {"source": "print(2)\n"}))["output"] == "2\n"
+
+
+def test_array_build_execute_and_bounds_over_real_http(server):
+    built = json.loads(request(server, "/api/build", {"source": EXAMPLES["arrays_mixed.poly"]}))
+    assert built["ok"], built.get("diagnostics")
+    assert built["artifact"]["version"] == 2
+    result = json.loads(request(server, "/api/exec", {"artifact": built["artifact_text"]}))
+    assert result["output"] == '15\n7\n[1, 7, 3, 4] 4\n'
+    result = json.loads(request(server, "/api/run", {"source": 'values = [1]\nprint(values[1])\n'}))
+    assert not result["ok"]
+    assert result["diagnostics"][0]["code"] == 'R012'

@@ -47,6 +47,31 @@ def generate(functions: list[IRFunction], symbols: list[dict]) -> dict:
                 load(inst["right"], loc)
                 emit("BINARY", [inst["operator"]], loc)
                 store(inst["dest"], loc)
+            elif op == "ARRAY_BUILD":
+                for value in inst["args"]:
+                    load(value, loc)
+                emit("ARRAY_BUILD", [inst["element_type"], len(inst["args"])], loc)
+                store(inst["dest"], loc)
+            elif op == "ARRAY_NEW":
+                load(inst["size"], loc)
+                emit("ARRAY_NEW", [inst["element_type"]], loc)
+                store(inst["dest"], loc)
+            elif op in ("ARRAY_GET", "ARRAY_SET", "ARRAY_CHECK"):
+                load(inst["array"], loc)
+                load(inst["index"], loc)
+                if op == "ARRAY_SET":
+                    load(inst["value"], loc)
+                emit(op, [], loc)
+                if op == "ARRAY_GET":
+                    store(inst["dest"], loc)
+            elif op == "ARRAY_LENGTH":
+                load(inst["array"], loc)
+                emit(op, [], loc)
+                store(inst["dest"], loc)
+            elif op == "ARRAY_SIZE_CHECK":
+                load(inst["array"], loc)
+                load(inst["size"], loc)
+                emit(op, [], loc)
             elif op == "OUTPUT":
                 for value in inst["args"]:
                     load(value, loc)
@@ -79,5 +104,5 @@ def generate(functions: list[IRFunction], symbols: list[dict]) -> dict:
             code[position]["args"][0] = labels[target]
         compiled.append({"id": fn.id, "name": fn.name, "params": fn.params, "return_type": fn.return_type,
                          "local_count": fn.local_count + fn.temp_count, "code": code})
-    return {"format": "polyglot-bytecode", "version": 1, "entry": 0, "constants": constants,
+    return {"format": "polyglot-bytecode", "version": 2, "entry": 0, "constants": constants,
             "global_count": sum(s["storage"] == "global" for s in symbols), "functions": compiled}

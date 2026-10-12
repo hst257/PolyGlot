@@ -117,20 +117,20 @@ def lex(source: Source) -> list[Token]:
                        if text.startswith(p, i)), None)
             if op:
                 i += len(op)
-            elif c in "(){}:;,+-*/%<>=!.":
+            elif c in "()[]{}:;,+-*/%<>=!.":
                 op = c
                 i += 1
             else:
                 fail(source, source.span(i, i + 1), "L007", f"Invalid token {c!r}.")
-            if op == "(":
+            if op in ("(", "["):
                 parens.append(start)
-            elif op == ")":
-                if not parens:
-                    fail(source, source.span(start, i), "L008", "Unexpected closing parenthesis.")
+            elif op in (")", "]"):
+                if not parens or text[parens[-1]] != ("(" if op == ")" else "["):
+                    fail(source, source.span(start, i), "L008", "Unexpected or mismatched closing delimiter.")
                 parens.pop()
             emit("OP", start, i)
     if parens:
-        fail(source, source.span(parens[-1], parens[-1] + 1), "L008", "Unclosed parenthesis.")
+        fail(source, source.span(parens[-1], parens[-1] + 1), "L008", "Unclosed parenthesis or array bracket.")
     if not tokens or tokens[-1].kind != "NEWLINE":
         emit("NEWLINE", len(text), len(text))
     emit("EOF", len(text), len(text))

@@ -1,14 +1,11 @@
 """Python-inspired headers reuse shared expression and suite grammars."""
 
 from ..ast import Node
-from .shared import TYPES, expression
+from .shared import expression, type_spec
 
 
 def annotation(p):
-    token = p.expect("NAME")
-    if token.text not in TYPES:
-        p.error(token, "P020", "Unknown type annotation.")
-    return TYPES[token.text]
+    return type_spec(p)
 
 
 def function(p):

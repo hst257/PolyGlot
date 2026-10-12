@@ -69,7 +69,25 @@ class Lowerer:
             return self.constant(d["value"], node, node.meta["type"])
         if node.kind == "Name":
             return self.load_binding(node)
+        if node.kind == "ArrayLiteral":
+            element = node.meta["element_type"]
+            values = [self.widen(self.expr(value), value.meta["type"], element, value) for value in d["values"]]
+            dest = self.temp()
+            self.emit("ARRAY_BUILD", node, dest=dest, args=values, element_type=element, type=node.meta["type"])
+            return dest
+        if node.kind == "ArrayNew":
+            size, dest = self.expr(d["size"]), self.temp()
+            self.emit("ARRAY_NEW", node, dest=dest, size=size, element_type=d["element_type"], type=node.meta["type"])
+            return dest
+        if node.kind == "Index":
+            array, index, dest = self.expr(d["array"]), self.expr(d["index"]), self.temp()
+            self.emit("ARRAY_GET", node, dest=dest, array=array, index=index, type=node.meta["type"])
+            return dest
         if node.kind == "Call":
+            if node.meta.get("builtin") == "len":
+                array, dest = self.expr(d["args"][0]), self.temp()
+                self.emit("ARRAY_LENGTH", node, dest=dest, array=array, type="int")
+                return dest
             args = []
             for arg, expected in zip(d["args"], node.meta["param_types"]):
                 args.append(self.widen(self.expr(arg), arg.meta["type"], expected, arg))
@@ -109,8 +127,27 @@ class Lowerer:
     def statement(self, node: Node):
         d = node.data
         if node.kind in ("Declare", "Assign") and d.get("value"):
+            size = self.expr(d["size"]) if d.get("size") is not None else None
             value = self.widen(self.expr(d["value"]), d["value"].meta["type"], node.meta["type"], node)
+            if size is not None:
+                self.emit("ARRAY_SIZE_CHECK", node, array=value, size=size)
             self.store_binding(node, value)
+        elif node.kind == "IndexAssign":
+            target = d["target"]
+            array, index = self.expr(target.data["array"]), self.expr(target.data["index"])
+            self.emit("ARRAY_CHECK", target, array=array, index=index)
+            old = None
+            if d["op"] != "=":
+                old = self.temp()
+                self.emit("ARRAY_GET", target, dest=old, array=array, index=index, type=node.meta["type"])
+            value = self.expr(d["value"])
+            if old is not None:
+                if node.meta["operation_type"] == "float":
+                    old = self.widen(old, node.meta["type"], "float", node)
+                    value = self.widen(value, d["value"].meta["type"], "float", node)
+                value = self.binary(d["op"][0], old, value, node, node.meta["operation_type"])
+            value = self.widen(value, node.meta["operation_type"], node.meta["type"], node)
+            self.emit("ARRAY_SET", node, array=array, index=index, value=value, type=node.meta["type"])
         elif node.kind == "Output":
             args = [self.expr(arg) for arg in d["args"]]
             self.emit("OUTPUT", node, args=args, separator=d["separator"], ending=d["ending"])

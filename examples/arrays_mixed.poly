@@ -1,0 +1,14 @@
+numbers = [1, 2, 3, 4]
+
+def sum_values(values: int[]) -> int:
+    total = 0
+    for i in range(len(values)):
+        total += values[i]
+    return total
+
+int bonus[2] = {5, 6};
+numbers[1] += bonus[0];
+int result = sum_values(numbers);
+System.out.println(result);
+std::cout << numbers[1] << std::endl;
+print(numbers, len(numbers))

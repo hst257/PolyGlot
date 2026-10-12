@@ -9,5 +9,6 @@
 7. Choose `mixed_nesting.poly` and run it; verify `22`. Point out the Python conditional inside a C-family loop. Choose `while_mixed.poly` to show braces inside a Python function.
 8. Choose `error_type.poly` and run/check it. Explain the diagnostic and fixed shared type model; click the error to navigate to its location. No output or executable artifact is produced.
 9. Optionally show `recursion.poly`, `negative_range.poly` or `short_circuit.poly`. State that C printf, JavaScript, BASIC, full source-language compatibility and optimization are deferred.
+10. Select `arrays_mixed.poly`. Show an inferred array, a C-style typed initializer, indexing inside a Python-style function and shared mutation. Run it; verify `15`, `7`, and `[1, 7, 3, 4] 4`. Inspect `int[]` symbols and array IR/bytecode. Try an index beyond the array length to demonstrate a mapped bounds diagnostic.
 
 Before October 19: rehearse on the actual laptop without internet; verify Python availability and the full test suite; retain a tested repository backup. No performance measurements have been claimed.

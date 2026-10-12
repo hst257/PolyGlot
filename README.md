@@ -68,9 +68,29 @@ The same launcher works on other platforms: `python run_polyglot.py serve`.
 
 ## Implemented scope
 
-P0 includes primitive values; inferred/explicit declarations; annotated functions, forward calls and recursion; both conditional/while spellings; `range`; three-part loops; `break`/`continue`; mixed indentation/braces; all three output forms; static checking; typed IR; validated artifacts; and a bounded custom VM.
+The compiler includes primitive values; one-dimensional arrays; inferred/explicit declarations; annotated functions, forward calls and recursion; both conditional/while spellings; `range`; three-part loops; `break`/`continue`; mixed indentation/braces; all three output forms; static checking; typed IR; validated artifacts; and a bounded custom VM.
 
-Optional C `printf`, JavaScript and BASIC syntax are **disabled**. Unannotated functions, advanced error recovery, optimization, classes, collections, imports and general object/member operations are unsupported. The compiler stops at the first error; it never executes invalid source. Initialization and return analysis are deliberately conservative.
+## Arrays
+
+```text
+values = [1, 2, 3]
+int bonus[2] = {4, 5};
+double[] weights = new double[3];
+values[0] += bonus[1]
+print(values, len(values))
+```
+
+Arrays contain one primitive element type, have fixed-length objects, and use zero-based indexing with runtime bounds checks. Sized allocations initialize elements to zero, false, or an empty string. Typed function parameters and returns accept `int[]`, `float[]`, `bool[]`, and `string[]` with existing type aliases. Arrays share references when assigned or passed to functions; array types are invariant. Empty literals require a known element type. Multidimensional arrays, slicing, resizing, and array arithmetic are unsupported.
+
+Select `arrays_mixed.poly` in the IDE or run:
+
+```powershell
+python .\run_polyglot.py run .\examples\arrays_mixed.poly
+```
+
+Expected output: `15`, `7`, and `[1, 7, 3, 4] 4` on separate lines. New bytecode uses format version 2; legacy scalar version 1 artifacts remain executable.
+
+Optional C `printf`, JavaScript and BASIC syntax are **disabled**. Unannotated functions, advanced error recovery, optimization, classes, other collection types, imports and general object/member operations are unsupported. The compiler stops at the first error; it never executes invalid source. Initialization and return analysis are deliberately conservative.
 
 ## Documentation
 

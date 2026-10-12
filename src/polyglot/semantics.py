@@ -5,6 +5,7 @@ from dataclasses import dataclass, field, asdict
 from .ast import Node
 from .source import Source
 from .diagnostics import fail
+from .types import VALUE_TYPES, is_array, is_value_type, MAX_ARRAY_LENGTH
 
 
 @dataclass
@@ -30,7 +31,7 @@ class Scope:
 
 RESERVED = {"print", "range", "cout", "endl", "std", "System", "def", "if", "elif", "else", "for", "while",
             "return", "break", "continue", "True", "False", "true", "false", "int", "float", "double", "bool",
-            "boolean", "string", "str", "String", "void"}
+            "boolean", "string", "str", "String", "void", "len", "new"}
 
 
 class Analyzer:
@@ -62,7 +63,7 @@ class Analyzer:
                        related=[self.scope.names[name].location])
         if function_id is not None:
             storage, slot = "function", function_id
-        elif type_name == "void":
+        elif not is_value_type(type_name):
             self.error(node, "S002", "Variables and parameters cannot have type void.")
         elif self.scope is self.root:
             storage, slot = "global", self.global_count
@@ -98,6 +99,26 @@ class Analyzer:
         if actual != expected and not (actual == "int" and expected == "float"):
             self.error(node, "S004", f"Cannot use {actual} where {expected} is required.")
 
+    def binary_type(self, node, op, a, b):
+        numeric = a in ("int", "float") and b in ("int", "float")
+        if op in ("and", "or") and a == b == "bool":
+            return "bool"
+        if op in ("==", "!=") and (numeric or a == b != "void") and not is_array(a) and not is_array(b):
+            return "bool"
+        if op in ("<", "<=", ">", ">=") and (numeric or a == b == "string"):
+            return "bool"
+        if op == "+" and a == b == "string":
+            return "string"
+        if op in ("+", "-", "*", "/", "%") and numeric:
+            return "float" if op == "/" or "float" in (a, b) else "int"
+        self.error(node, "S006", f"Invalid operator {op} for {a} and {b}.")
+
+    def array_size(self, node):
+        if self.expr(node) != "int":
+            self.error(node, "S023", "Array length must have type int.")
+        if node.kind == "Literal" and not 0 <= node.data["value"] <= MAX_ARRAY_LENGTH:
+            self.error(node, "S025", f"Array length must be between 0 and {MAX_ARRAY_LENGTH}.")
+
     def readable(self, node: Node, symbol: Symbol):
         if symbol.storage == "function":
             self.error(node, "S007", "Functions are callable names, not first-class values.")
@@ -105,25 +126,66 @@ class Analyzer:
             self.error(node, "S005", f"Variable {symbol.name!r} may be uninitialized.",
                        "Assign a value on every path before reading it.")
 
-    def expr(self, node: Node) -> str:
+    def expr(self, node: Node, expected: str | None = None) -> str:
         d = node.data
         if node.kind == "Literal":
             t = {bool: "bool", int: "int", float: "float", str: "string"}[type(d["value"])]
             if t == "float" and not math.isfinite(d["value"]):
                 self.error(node, "S009", "Nonfinite floating-point literal.")
+        elif node.kind == "ArrayLiteral":
+            values = d["values"]
+            if any(value.kind in ("ArrayLiteral", "ArrayNew") for value in values):
+                self.error(node, "S022", "Nested arrays are unsupported.")
+            if len(values) > MAX_ARRAY_LENGTH:
+                self.error(node, "S025", f"Arrays may contain at most {MAX_ARRAY_LENGTH} elements.")
+            types = [self.expr(value) for value in values]
+            if any(t not in VALUE_TYPES for t in types):
+                self.error(node, "S022", "Arrays must contain primitive values; nested arrays are unsupported.")
+            if is_array(expected):
+                element = expected[:-2]
+            elif not types:
+                self.error(node, "S021", "Cannot infer the element type of an empty array.", "Use an explicit declaration such as int[] values = [];")
+            elif all(t in ("int", "float") for t in types):
+                element = "float" if "float" in types else "int"
+            elif len(set(types)) == 1:
+                element = types[0]
+            else:
+                self.error(node, "S022", "Array elements must have one compatible primitive type.")
+            for value, actual in zip(values, types):
+                self.compatible(value, actual, element)
+            node.meta["element_type"] = element
+            t = element + "[]"
+        elif node.kind == "ArrayNew":
+            self.array_size(d["size"])
+            t = d["element_type"] + "[]"
+            node.meta["element_type"] = d["element_type"]
+        elif node.kind == "Index":
+            array_type = self.expr(d["array"])
+            if not is_array(array_type):
+                self.error(node, "S019", "Indexing requires a one-dimensional array.")
+            if self.expr(d["index"]) != "int":
+                self.error(d["index"], "S020", "Array indexes must have type int.")
+            t = array_type[:-2]
         elif node.kind == "Name":
             symbol = self.reference(node, d["name"])
             self.readable(node, symbol)
             self.attach(node, symbol)
             t = symbol.type
         elif node.kind == "Call":
+            if d["name"] == "len":
+                if len(d["args"]) != 1:
+                    self.error(node, "S011", "len expects exactly one array argument.")
+                if not is_array(self.expr(d["args"][0])):
+                    self.error(node, "S019", "len requires an array.")
+                node.meta.update({"builtin": "len", "type": "int"})
+                return "int"
             symbol = self.reference(node, d["name"])
             if symbol.storage != "function":
                 self.error(node, "S010", f"{symbol.name!r} is not a function.")
             if len(d["args"]) != len(symbol.params):
                 self.error(node, "S011", f"{symbol.name} expects {len(symbol.params)} arguments, got {len(d['args'])}.")
             for arg, expected in zip(d["args"], symbol.params):
-                self.compatible(arg, self.expr(arg), expected)
+                self.compatible(arg, self.expr(arg, expected), expected)
             node.meta.update({"function": symbol.slot, "param_types": symbol.params})
             t = symbol.type
         elif node.kind == "Unary":
@@ -132,19 +194,7 @@ class Analyzer:
                 self.error(node, "S006", f"Invalid unary operator {d['op']} for {t}.")
         elif node.kind == "Binary":
             a, b, op = self.expr(d["left"]), self.expr(d["right"]), d["op"]
-            numeric = a in ("int", "float") and b in ("int", "float")
-            if op in ("and", "or") and a == b == "bool":
-                t = "bool"
-            elif op in ("==", "!=") and (numeric or a == b != "void"):
-                t = "bool"
-            elif op in ("<", "<=", ">", ">=") and (numeric or a == b == "string"):
-                t = "bool"
-            elif op == "+" and a == b == "string":
-                t = "string"
-            elif op in ("+", "-", "*", "/", "%") and numeric:
-                t = "float" if op == "/" or "float" in (a, b) else "int"
-            else:
-                self.error(node, "S006", f"Invalid operator {op} for {a} and {b}.")
+            t = self.binary_type(node, op, a, b)
         else:
             self.error(node, "S007", "Unsupported expression.")
         node.meta["type"] = t
@@ -170,7 +220,13 @@ class Analyzer:
         if node.kind == "Function":
             self.error(node, "S013", "Nested functions are unsupported.")
         if node.kind in ("Declare", "Assign"):
-            value_type = self.expr(d["value"]) if d.get("value") else None
+            existing = self.find(d["name"]) if node.kind == "Assign" else None
+            expected = d["type"] if node.kind == "Declare" else existing.type if existing else None
+            value_type = self.expr(d["value"], expected) if d.get("value") else None
+            if d.get("size") is not None:
+                self.array_size(d["size"])
+                if d["size"].kind == "Literal" and d["value"].kind == "ArrayLiteral" and d["size"].data["value"] != len(d["value"].data["values"]):
+                    self.error(node, "S026", "Array initializer length does not match the declared length.")
             if node.kind == "Declare":
                 symbol = self.bind(node, d["name"], d["type"])
             else:
@@ -190,6 +246,12 @@ class Analyzer:
             if value_type is not None:
                 self.compatible(node, value_type, symbol.type)
                 self.assigned.add(symbol.id)
+        elif node.kind == "IndexAssign":
+            target_type = self.expr(d["target"])
+            value_type = self.expr(d["value"])
+            result_type = value_type if d["op"] == "=" else self.binary_type(node, d["op"][0], target_type, value_type)
+            self.compatible(node, result_type, target_type)
+            node.meta.update({"type": target_type, "operation_type": result_type})
         elif node.kind == "Output":
             for arg in d["args"]:
                 if self.expr(arg) == "void":
@@ -256,7 +318,7 @@ class Analyzer:
             elif self.return_type == "void":
                 self.error(node, "S017", "A void function cannot return a value.")
             else:
-                self.compatible(node, self.expr(d["value"]), self.return_type)
+                self.compatible(node, self.expr(d["value"], self.return_type), self.return_type)
             return False
         else:
             self.error(node, "S007", f"Unsupported AST node {node.kind}.")

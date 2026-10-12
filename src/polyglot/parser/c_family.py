@@ -1,28 +1,50 @@
 """Shared C++/Java grammar, with explicit built-in output forms."""
 
 from ..ast import Node
-from .shared import TYPES, expression
+from .shared import TYPES, expression, type_spec, array_literal
 
 
 def declaration(p):
-    start, name = p.take(), p.expect("NAME")
+    start = p.peek()
+    declared_type = type_spec(p)
+    name = p.expect("NAME")
+    size = None
+    if p.match("["):
+        if declared_type.endswith("[]"):
+            p.error(name, "P025", "Multidimensional arrays are unsupported.")
+        declared_type += "[]"
+        size = None if p.at("]") else expression(p)
+        p.expect("]")
+        if p.at("["):
+            p.error(name, "P025", "Multidimensional arrays are unsupported.")
     if p.at("{"):
         p.error(name, "P022", "A function declaration needs a name followed by parameters.", "Use int name(int parameter) { ... }.")
-    value = expression(p) if p.match("=") else None
-    return Node("Declare", p.join(start.span, p.previous().span), {"name": name.text, "type": TYPES[start.text], "value": value})
+    value = None
+    if p.match("="):
+        value = array_literal(p, "{", "}") if p.at("{") else expression(p)
+    elif size is not None:
+        value = Node("ArrayNew", size.span, {"element_type": declared_type[:-2], "size": size})
+        size = None
+    return Node("Declare", p.join(start.span, p.previous().span),
+                {"name": name.text, "type": declared_type, "value": value, "size": size})
 
 
 def function(p):
-    start, name = p.take(), p.expect("NAME")
+    start = p.peek()
+    return_type = type_spec(p)
+    name = p.expect("NAME")
     p.expect("(")
     params = []
     if not p.at(")"):
         while True:
-            type_token = p.expect("NAME")
-            if type_token.text not in TYPES:
-                p.error(type_token, "P020", "Function parameters require a supported type.")
+            parameter_type = type_spec(p)
             parameter = p.expect("NAME")
-            params.append({"name": parameter.text, "type": TYPES[type_token.text], "span": parameter.span})
+            if p.match("["):
+                if parameter_type.endswith("[]"):
+                    p.error(parameter, "P025", "Multidimensional arrays are unsupported.")
+                p.expect("]")
+                parameter_type += "[]"
+            params.append({"name": parameter.text, "type": parameter_type, "span": parameter.span})
             if not p.match(","):
                 break
     p.expect(")")
@@ -30,7 +52,7 @@ def function(p):
         p.error(p.peek(), "P001", "Typed functions require a brace body.")
     body = p.suite(start)
     node = Node("Function", p.join(start.span, body.span), {"name": name.text, "params": params,
-                                                          "return_type": TYPES[start.text], "body": body})
+                                                          "return_type": return_type, "body": body})
     return p.record(node, "shared-c", "typed-function", ["typed signature and braces"])
 
 

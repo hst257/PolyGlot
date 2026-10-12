@@ -123,14 +123,24 @@ class Parser:
 
     def assignment(self) -> Node:
         start = self.expect("NAME")
+        target = None
+        if self.match("["):
+            index = expression(self)
+            end = self.expect("]")
+            target = Node("Index", self.join(start.span, end.span),
+                          {"array": Node("Name", start.span, {"name": start.text}), "index": index})
         op = self.take()
         if op.text in ("++", "--"):
+            if target is not None:
+                self.error(op, "P025", "Indexed increment/decrement is unsupported; use += or -=.")
             value = Node("Literal", op.span, {"value": 1})
             operator = "+=" if op.text == "++" else "-="
         elif op.text in ("=", "+=", "-="):
             value, operator = expression(self), op.text
         else:
             self.error(op, "P006", "Expected an assignment or loop update.")
+        if target is not None:
+            return Node("IndexAssign", self.join(start.span, value.span), {"target": target, "op": operator, "value": value})
         return Node("Assign", self.join(start.span, value.span), {"name": start.text, "op": operator, "value": value})
 
     def control(self) -> Node:
@@ -177,7 +187,8 @@ class Parser:
         if token.text in ("class", "import", "from", "using", "namespace", "let", "const", "function", "LET", "PRINT", "GOTO", "printf", "console"):
             self.error(token, "P004", f"Unsupported construct {token.text!r}.", "Use the documented P0 syntax subset.")
         if token.text in TYPES:
-            if self.peek(2).text == "(":
+            offset = 3 if self.peek(1).text == "[" and self.peek(2).text == "]" else 1
+            if self.peek(offset + 1).text == "(":
                 return c_family.function(self)
             node = c_family.declaration(self)
             self.end(True)
@@ -202,7 +213,7 @@ class Parser:
             node = Node("Output", self.join(start.span, self.previous().span), {"args": args, "separator": " " if len(args) > 1 else "", "ending": "\n"})
             self.end()
             return self.record(node, "Python", "print", ["recognized print builtin"])
-        if token.kind == "NAME" and self.peek(1).text in ("=", "+=", "-="):
+        if token.kind == "NAME" and self.peek(1).text in ("=", "+=", "-=", "["):
             node = self.assignment()
             self.end()
             return self.record(node, "shared", "assignment", ["shared assignment spelling"])

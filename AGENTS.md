@@ -46,6 +46,8 @@ Use pytest with `test_*.py` files and `test_*` functions. Test every grammar or 
 
 ## Commit & Pull Request Guidelines
 
-No Git history is available. Use descriptive imperative commits, preferably `feat:`, `fix:`, `test:`, or `docs:`.
+Use descriptive imperative commits, preferably `feat:`, `fix:`, `test:`, or `docs:`.
+
+Automatically commit and push stable versions after relevant tests and verification pass. Review the diff and commit only changes for the current task, then push to the configured remote and branch. Never force-push. If a remote, credentials, or branch permissions prevent pushing, retain the stable local commit and report the blocker.
 
 PRs should explain behavior changes, actual test results, and limitations. Include screenshots for IDE changes and explicitly identify deferred features.

@@ -1,12 +1,20 @@
 """Validated stack bytecode execution, call frames, guards, and resource limits."""
 
 import math
+import json
 import time
 from dataclasses import dataclass, field
 from .artifact import validate
 from .diagnostics import Diagnostic, PolyglotError
+from .types import MAX_ARRAY_LENGTH, MAX_ARRAY_ELEMENTS
 
 UNINITIALIZED = object()
+
+
+@dataclass
+class ArrayValue:
+    element_type: str
+    values: list
 
 
 @dataclass
@@ -27,7 +35,15 @@ class Frame:
 
 
 def type_name(value):
+    if isinstance(value, ArrayValue):
+        return value.element_type + "[]"
     return {bool: "bool", int: "int", float: "float", str: "string"}.get(type(value))
+
+
+def format_value(value):
+    if isinstance(value, ArrayValue):
+        return json.dumps(value.values, ensure_ascii=False, allow_nan=False)
+    return "true" if value is True else "false" if value is False else str(value)
 
 
 def run(artifact: dict, limits: Limits | None = None) -> dict:
@@ -41,6 +57,7 @@ def run(artifact: dict, limits: Limits | None = None) -> dict:
     fn = artifact["functions"][artifact["entry"]]
     frames = [Frame(fn, [UNINITIALIZED] * fn["local_count"])]
     output, steps, output_size = [], 0, 0
+    allocated_elements = 0
     started = time.monotonic()
     while frames:
         frame = frames[-1]
@@ -64,6 +81,26 @@ def run(artifact: dict, limits: Limits | None = None) -> dict:
             if type(value) is int and value.bit_length() > 1_000_000:
                 error("R010", "Integer value exceeds the execution resource limit.")
             return value
+
+        def array_index(array, index):
+            if not isinstance(array, ArrayValue) or type(index) is not int:
+                error("R007", "Array access requires an array and an integer index.")
+            if not 0 <= index < len(array.values):
+                error("R012", f"Array index {index} is outside bounds [0, {len(array.values)}).")
+
+        def array_size(size):
+            if type(size) is not int or not 0 <= size <= MAX_ARRAY_LENGTH:
+                error("R013", f"Array length must be an integer between 0 and {MAX_ARRAY_LENGTH}.")
+
+        def allocate(element, values):
+            nonlocal allocated_elements
+            array_size(len(values))
+            if any(type_name(v) != element for v in values):
+                error("R007", "Array elements have incompatible types.")
+            allocated_elements += max(1, len(values))
+            if allocated_elements > MAX_ARRAY_ELEMENTS:
+                error("R013", "Array allocation budget exceeded.")
+            return ArrayValue(element, values)
 
         if steps > limits.steps:
             error("R001", "Instruction execution limit exceeded.")
@@ -100,7 +137,7 @@ def run(artifact: dict, limits: Limits | None = None) -> dict:
                     if type(a) is not bool or type(b) is not bool:
                         error("R007", "Boolean operation requires Booleans.")
                 elif operator in ("==", "!="):
-                    if not (numeric or type_name(a) == type_name(b)):
+                    if isinstance(a, ArrayValue) or isinstance(b, ArrayValue) or not (numeric or type_name(a) == type_name(b)):
                         error("R007", "Comparison operands have incompatible types.")
                 elif not numeric and not (type(a) is type(b) is str and operator in ("+", "<", "<=", ">", ">=")):
                     error("R007", "Operands have incompatible types.")
@@ -113,6 +150,36 @@ def run(artifact: dict, limits: Limits | None = None) -> dict:
                              "==": lambda: a == b, "!=": lambda: a != b, "<": lambda: a < b, "<=": lambda: a <= b,
                              ">": lambda: a > b, ">=": lambda: a >= b, "and": lambda: a and b, "or": lambda: a or b}[operator]()
                 frame.stack.append(checked(value))
+            elif op == "ARRAY_BUILD":
+                values = [frame.stack.pop() for _ in range(args[1])][::-1]
+                frame.stack.append(allocate(args[0], values))
+            elif op == "ARRAY_NEW":
+                size = frame.stack.pop()
+                array_size(size)
+                default = {"int": 0, "float": 0.0, "bool": False, "string": ""}[args[0]]
+                frame.stack.append(allocate(args[0], [default] * size))
+            elif op in ("ARRAY_GET", "ARRAY_SET", "ARRAY_CHECK"):
+                value = frame.stack.pop() if op == "ARRAY_SET" else None
+                index, array = frame.stack.pop(), frame.stack.pop()
+                array_index(array, index)
+                if op == "ARRAY_GET":
+                    frame.stack.append(array.values[index])
+                elif op == "ARRAY_SET":
+                    if type_name(value) != array.element_type:
+                        error("R007", "Array element assignment has an incompatible type.")
+                    array.values[index] = checked(value)
+            elif op == "ARRAY_LENGTH":
+                array = frame.stack.pop()
+                if not isinstance(array, ArrayValue):
+                    error("R007", "Array length requires an array.")
+                frame.stack.append(len(array.values))
+            elif op == "ARRAY_SIZE_CHECK":
+                size, array = frame.stack.pop(), frame.stack.pop()
+                array_size(size)
+                if not isinstance(array, ArrayValue):
+                    error("R007", "Array size validation requires an array.")
+                if size != len(array.values):
+                    error("R014", "Array initializer length does not match the declared length.")
             elif op in ("JUMP", "JUMP_IF_FALSE"):
                 if op == "JUMP":
                     frame.ip = args[0]
@@ -141,7 +208,7 @@ def run(artifact: dict, limits: Limits | None = None) -> dict:
                     frames[-1].stack.append(value)
             elif op == "OUTPUT":
                 values = [frame.stack.pop() for _ in range(args[0])][::-1]
-                rendered = args[1].join("true" if v is True else "false" if v is False else str(v) for v in values) + args[2]
+                rendered = args[1].join(format_value(v) for v in values) + args[2]
                 output_size += len(rendered.encode("utf-8"))
                 if output_size > limits.output:
                     error("R006", "Output size limit exceeded.")

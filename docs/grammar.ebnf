@@ -5,13 +5,15 @@ function = "def", NAME, "(", [ py_parameters ], ")", "->", type, indent_suite
 py_parameters = NAME, ":", value_type, { ",", NAME, ":", value_type } ;
 c_parameters = value_type, NAME, { ",", value_type, NAME } ;
 type = value_type | "void" ;
-value_type = "int" | "float" | "double" | "bool" | "boolean" | "str" | "string" | "String" ;
+value_type = primitive_type, [ "[", "]" ] ;
+primitive_type = "int" | "float" | "double" | "bool" | "boolean" | "str" | "string" | "String" ;
 statement = declaration, ";" | assignment, terminator | call, terminator
           | output | conditional | while | range_loop | c_for
           | "return", [ expression ], terminator
           | ("break" | "continue"), terminator ;
-declaration = value_type, NAME, [ "=", expression ] ;
-assignment = NAME, ("=" | "+=" | "-="), expression ;
+declaration = value_type, NAME, [ "[", [ expression ], "]" ],
+              [ "=", (expression | brace_array) ] ;
+assignment = NAME, [ "[", expression, "]" ], ("=" | "+=" | "-="), expression ;
 terminator = ";" | NEWLINE ;
 indent_suite = ":", NEWLINE, INDENT, statement, { statement }, DEDENT ;
 brace_suite = "{", { statement }, "}" ;
@@ -37,11 +39,16 @@ comparison = addition, [ ("==" | "!=" | "<" | "<=" | ">" | ">="), addition ] ;
 addition = multiplication, { ("+" | "-"), multiplication } ;
 multiplication = unary, { ("*" | "/" | "%"), unary } ;
 unary = ("+" | "-"), unary | primary ;
-primary = NUMBER | STRING | "True" | "False" | "true" | "false" | NAME | call
-        | "(", expression, ")" ;
+primary = atom, { "[", expression, "]" } ;
+atom = NUMBER | STRING | "True" | "False" | "true" | "false" | NAME | call
+     | "(", expression, ")" | array_literal | "new", primitive_type, "[", expression, "]" ;
+array_literal = "[", [ expression, { ",", expression }, [ "," ] ], "]" ;
+brace_array = "{", [ expression, { ",", expression }, [ "," ] ], "}" ;
 call = NAME, "(", [ arguments ], ")" ;
 (* Blank NEWLINEs are ignored between statements. Parenthesized newlines are suppressed.
    Layout markers are produced by the parser-driven context stack, not arbitrary whitespace.
-   Semantic analysis rejects nested functions, void variables and invalid shared bindings.
+   Semantic analysis rejects nested functions, void variables, nested arrays and invalid bindings.
+   C-family parameters also accept primitive_type NAME []. Array declarations have only
+   one [] suffix, either before or after the name. len(array) is a recognized builtin.
    The Pratt parser accepts unary Boolean negation where an operand begins; it retains the
    common precedence described in language.md. No general member access is supported. *)

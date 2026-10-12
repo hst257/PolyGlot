@@ -38,6 +38,8 @@ Recognition stores family, candidate families, rule, source span, distinctive/sh
 
 Each binding has a global or frame-local slot; each IR temporary has an additional frame-local slot. Recursive calls create fresh local storage and operand stacks. Calls evaluate arguments left to right. Source maps and excerpts live in the artifact, so diagnostics do not require opening source files.
 
+Arrays normalize to `ArrayLiteral`, `ArrayNew`, `Index`, and `IndexAssign` nodes. Static analysis fixes their primitive element type and uses invariant array signatures. Explicit array IR lowers to dedicated, validated version 2 stack instructions. VM array objects share references across assignments/calls; accesses and writes enforce integer indexes, bounds and element types. Version 1 scalar artifacts remain supported.
+
 The server binds only to loopback, checks Host/Origin, serves an explicit static-file allowlist, and launches spawned workers. A parent wall-clock deadline terminates runaway compilation/execution. This is a local educational tool, not a public multi-user hosting service.
 
 ## P1 extension points

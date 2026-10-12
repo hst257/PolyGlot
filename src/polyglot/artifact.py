@@ -3,10 +3,10 @@
 import json
 import math
 from collections import deque
+from .types import VALUE_TYPES, is_value_type, MAX_ARRAY_LENGTH
 
 UNARY = {"+", "-", "not", "float"}
 BINARY = {"+", "-", "*", "/", "%", "==", "!=", "<", "<=", ">", ">=", "and", "or"}
-VALUE_TYPES = ("int", "float", "bool", "string")
 
 
 class ArtifactError(ValueError):
@@ -23,7 +23,8 @@ def validate(artifact: dict) -> dict:
 
     require(type(artifact) is dict, "Artifact must be an object.")
     require(artifact.get("format") == "polyglot-bytecode" and type(artifact.get("version")) is int
-            and artifact["version"] == 1, "Unsupported artifact format/version.")
+            and artifact["version"] in (1, 2), "Unsupported artifact format/version.")
+    version = artifact["version"]
     constants, functions = artifact.get("constants"), artifact.get("functions")
     require(type(constants) is list and len(constants) <= 100000 and type(functions) is list
             and 0 < len(functions) <= 1000, "Invalid constant/function tables.")
@@ -42,9 +43,10 @@ def validate(artifact: dict) -> dict:
                 and type(fn.get("name")) is str, "Invalid function identity.")
         locals_count = fn.get("local_count")
         require(type(locals_count) is int and 0 <= locals_count <= 100000, "Invalid local storage count.")
-        require(type(fn.get("params")) is list and all(t in VALUE_TYPES for t in fn["params"])
+        valid_type = is_value_type if version == 2 else lambda t: t in VALUE_TYPES
+        require(type(fn.get("params")) is list and all(valid_type(t) for t in fn["params"])
                 and len(fn["params"]) <= locals_count, "Invalid function parameters.")
-        require(fn.get("return_type") in (*VALUE_TYPES, "void"), "Invalid return type.")
+        require(fn.get("return_type") == "void" or valid_type(fn.get("return_type")), "Invalid return type.")
         require(type(fn.get("code")) is list and 0 < len(fn["code"]) <= 100000, "Invalid instruction table.")
     require(functions[artifact["entry"]]["params"] == []
             and functions[artifact["entry"]]["return_type"] == "void", "Entry must be a parameterless void function.")
@@ -53,6 +55,9 @@ def validate(artifact: dict) -> dict:
         for instruction in code:
             require(type(instruction) is dict and type(instruction.get("args")) is list, "Invalid instruction.")
             op, args, loc = instruction.get("op"), instruction["args"], instruction.get("source")
+            require(type(op) is str, "Invalid opcode.")
+            if op.startswith("ARRAY_"):
+                require(version == 2, "Array instructions require artifact version 2.")
             require(type(loc) is dict and type(loc.get("filename")) is str and type(loc.get("line")) is int
                     and type(loc.get("column")) is int and loc["line"] > 0 and loc["column"] > 0
                     and type(loc.get("excerpt", "")) is str, "Invalid source mapping.")
@@ -70,6 +75,13 @@ def validate(artifact: dict) -> dict:
             elif op == "CALL":
                 require(len(args) == 2 and index(args[0], len(functions)) and type(args[1]) is int
                         and args[1] == len(functions[args[0]]["params"]), "Invalid function reference/arity.")
+            elif op == "ARRAY_BUILD":
+                require(len(args) == 2 and args[0] in VALUE_TYPES and type(args[1]) is int
+                        and 0 <= args[1] <= MAX_ARRAY_LENGTH, "Invalid array construction operands.")
+            elif op == "ARRAY_NEW":
+                require(len(args) == 1 and args[0] in VALUE_TYPES, "Invalid array element type.")
+            elif op in ("ARRAY_GET", "ARRAY_SET", "ARRAY_CHECK", "ARRAY_LENGTH", "ARRAY_SIZE_CHECK"):
+                require(not args, "Invalid array instruction operands.")
             elif op in ("ASSERT", "TRAP"):
                 require(len(args) == 2 and all(type(v) is str for v in args), "Invalid runtime guard.")
             elif op in ("RETURN_VOID", "RETURN_VALUE", "POP"):
@@ -101,6 +113,16 @@ def validate(artifact: dict) -> dict:
             elif op == "CALL":
                 consume = args[1]
                 produce = int(functions[args[0]]["return_type"] != "void")
+            elif op == "ARRAY_BUILD":
+                consume, produce = args[1], 1
+            elif op in ("ARRAY_NEW", "ARRAY_LENGTH"):
+                consume = produce = 1
+            elif op == "ARRAY_GET":
+                consume, produce = 2, 1
+            elif op in ("ARRAY_CHECK", "ARRAY_SIZE_CHECK"):
+                consume = 2
+            elif op == "ARRAY_SET":
+                consume = 3
             require(height >= consume, "Operand stack underflow.")
             new_height = height - consume + produce
             require(new_height <= 4096, "Operand stack exceeds its limit.")
@@ -120,7 +142,14 @@ def validate(artifact: dict) -> dict:
 
 def dumps(artifact: dict) -> str:
     validate(artifact)
-    return json.dumps(artifact, indent=2, ensure_ascii=False, allow_nan=False)
+    chunks, size = [], 0
+    encoder = json.JSONEncoder(indent=2, ensure_ascii=False, allow_nan=False)
+    for chunk in encoder.iterencode(artifact):
+        size += len(chunk.encode("utf-8"))
+        if size > 5_000_000:
+            raise ArtifactError("Artifact exceeds the 5 MB limit.")
+        chunks.append(chunk)
+    return "".join(chunks)
 
 
 def loads(text: str) -> dict:
