@@ -1,0 +1,8 @@
+def count(limit: int) -> void:
+    int value = 0;
+    while (value < limit) {
+        System.out.println(value);
+        value += 1
+    }
+
+count(3);

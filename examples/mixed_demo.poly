@@ -1,0 +1,16 @@
+total = 0
+
+int add(int a, int b) {
+    return a + b;
+}
+
+def twice(value: int) -> int:
+    return add(value, value)
+
+for i in range(4):
+    total = add(total, i)
+    System.out.println(total);
+
+int result = twice(total);
+std::cout << result << std::endl;
+print("done")

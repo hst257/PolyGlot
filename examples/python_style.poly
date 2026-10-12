@@ -1,0 +1,5 @@
+def square(value: int) -> int:
+    return value * value
+
+for i in range(1, 4):
+    print(square(i))

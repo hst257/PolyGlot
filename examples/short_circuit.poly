@@ -1,0 +1,3 @@
+boolean safe = false && (1 / 0 > 0);
+print(safe)
+print(True or (1 / 0 > 0))

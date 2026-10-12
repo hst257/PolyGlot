@@ -1,0 +1,47 @@
+(* P0 grammar. NAME excludes reserved construct/builtin/type names in binding positions. *)
+program = { function | statement }, EOF ;
+function = "def", NAME, "(", [ py_parameters ], ")", "->", type, indent_suite
+         | type, NAME, "(", [ c_parameters ], ")", brace_suite ;
+py_parameters = NAME, ":", value_type, { ",", NAME, ":", value_type } ;
+c_parameters = value_type, NAME, { ",", value_type, NAME } ;
+type = value_type | "void" ;
+value_type = "int" | "float" | "double" | "bool" | "boolean" | "str" | "string" | "String" ;
+statement = declaration, ";" | assignment, terminator | call, terminator
+          | output | conditional | while | range_loop | c_for
+          | "return", [ expression ], terminator
+          | ("break" | "continue"), terminator ;
+declaration = value_type, NAME, [ "=", expression ] ;
+assignment = NAME, ("=" | "+=" | "-="), expression ;
+terminator = ";" | NEWLINE ;
+indent_suite = ":", NEWLINE, INDENT, statement, { statement }, DEDENT ;
+brace_suite = "{", { statement }, "}" ;
+condition_suite = expression, indent_suite | "(", expression, ")", brace_suite ;
+conditional = "if", condition_suite,
+              { "elif", expression, indent_suite | "else", "if", condition_suite },
+              [ "else", (indent_suite | brace_suite) ] ;
+while = "while", condition_suite ;
+range_loop = "for", NAME, "in", "range", "(", expression,
+             [ ",", expression, [ ",", expression ] ], ")", indent_suite ;
+c_for = "for", "(", [ declaration | assignment ], ";", [ expression ], ";",
+        [ assignment | NAME, ("++" | "--") ], ")", brace_suite ;
+output = "print", "(", [ arguments ], ")", terminator
+       | "System", ".", "out", ".", "println", "(", expression, ")", ";"
+       | [ "std", "::" ], "cout", "<<", insertion, { "<<", insertion }, ";" ;
+insertion = expression | [ "std", "::" ], "endl" ;
+arguments = expression, { ",", expression } ;
+expression = disjunction ;
+disjunction = conjunction, { ("or" | "||"), conjunction } ;
+conjunction = negation, { ("and" | "&&"), negation } ;
+negation = ("not" | "!"), negation | comparison ;
+comparison = addition, [ ("==" | "!=" | "<" | "<=" | ">" | ">="), addition ] ;
+addition = multiplication, { ("+" | "-"), multiplication } ;
+multiplication = unary, { ("*" | "/" | "%"), unary } ;
+unary = ("+" | "-"), unary | primary ;
+primary = NUMBER | STRING | "True" | "False" | "true" | "false" | NAME | call
+        | "(", expression, ")" ;
+call = NAME, "(", [ arguments ], ")" ;
+(* Blank NEWLINEs are ignored between statements. Parenthesized newlines are suppressed.
+   Layout markers are produced by the parser-driven context stack, not arbitrary whitespace.
+   Semantic analysis rejects nested functions, void variables and invalid shared bindings.
+   The Pratt parser accepts unary Boolean negation where an operand begins; it retains the
+   common precedence described in language.md. No general member access is supported. *)

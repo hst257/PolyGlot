@@ -1,0 +1,13 @@
+# Professor demonstration script
+
+1. Start `python .\run_polyglot.py serve` and open `http://127.0.0.1:8765`. Explain that this runs offline and implements a new restricted language, not three external compilers.
+2. Choose `mixed_demo.poly`. Point out a shared variable, typed `add`, annotated `twice`, range loop, Java output and C++ output. Run it; verify `0`, `1`, `3`, `6`, `12`, `done` on separate lines.
+3. Inspect Recognition. Show distinctive `def`/output forms and shared C-family declarations. Explain that identical C++/Java syntax cannot reliably be attributed to just one language.
+4. Inspect Tokens and AST. Show source spans and shared expression/function/output nodes. Inspect Symbols to show resolved bindings, types, scopes and slots.
+5. Inspect IR. Show explicit temporary values, calls and branches. Inspect Bytecode to show actual generated stack instructions and function tables.
+6. Click Build .pbc. Change the editor source, then Execute bytecode with the downloaded artifact. Show that its original output and mappings do not depend on the editor/source file.
+7. Choose `mixed_nesting.poly` and run it; verify `22`. Point out the Python conditional inside a C-family loop. Choose `while_mixed.poly` to show braces inside a Python function.
+8. Choose `error_type.poly` and run/check it. Explain the diagnostic and fixed shared type model; click the error to navigate to its location. No output or executable artifact is produced.
+9. Optionally show `recursion.poly`, `negative_range.poly` or `short_circuit.poly`. State that C printf, JavaScript, BASIC, full source-language compatibility and optimization are deferred.
+
+Before October 19: rehearse on the actual laptop without internet; verify Python availability and the full test suite; retain a tested repository backup. No performance measurements have been claimed.
