@@ -79,3 +79,12 @@ def test_array_build_execute_and_bounds_over_real_http(server):
     result = json.loads(request(server, "/api/run", {"source": 'values = [1]\nprint(values[1])\n'}))
     assert not result["ok"]
     assert result["diagnostics"][0]["code"] == 'R012'
+
+
+def test_cross_syntax_array_iteration_through_http(server):
+    built = json.loads(request(server, "/api/build", {"source": EXAMPLES["array_iteration.poly"]}))
+    assert built["ok"], built.get("diagnostics")
+    result = json.loads(request(server, "/api/exec", {"artifact": built["artifact_text"]}))
+    assert result["output"] == '1\n2\n3\n4\n5\n'
+    ast_nodes = built["stages"]["ast"]["data"]["body"]
+    assert any(node["kind"] == 'ForEach' for node in ast_nodes)

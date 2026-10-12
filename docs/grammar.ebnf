@@ -8,7 +8,7 @@ type = value_type | "void" ;
 value_type = primitive_type, [ "[", "]" ] ;
 primitive_type = "int" | "float" | "double" | "bool" | "boolean" | "str" | "string" | "String" ;
 statement = declaration, ";" | assignment, terminator | call, terminator
-          | output | conditional | while | range_loop | c_for
+          | output | conditional | while | range_loop | array_loop | c_for
           | "return", [ expression ], terminator
           | ("break" | "continue"), terminator ;
 declaration = value_type, NAME, [ "[", [ expression ], "]" ],
@@ -24,6 +24,7 @@ conditional = "if", condition_suite,
 while = "while", condition_suite ;
 range_loop = "for", NAME, "in", "range", "(", expression,
              [ ",", expression, [ ",", expression ] ], ")", indent_suite ;
+array_loop = "for", NAME, "in", expression, indent_suite ;
 c_for = "for", "(", [ declaration | assignment ], ";", [ expression ], ";",
         [ assignment | NAME, ("++" | "--") ], ")", brace_suite ;
 output = "print", "(", [ arguments ], ")", terminator
@@ -50,5 +51,7 @@ call = NAME, "(", [ arguments ], ")" ;
    Semantic analysis rejects nested functions, void variables, nested arrays and invalid bindings.
    C-family parameters also accept primitive_type NAME []. Array declarations have only
    one [] suffix, either before or after the name. len(array) is a recognized builtin.
+   A range(...) iterable produces a Range node; other for-in expressions produce a
+   ForEach node and must have array type. Parentheses may wrap the iterable expression.
    The Pratt parser accepts unary Boolean negation where an operand begins; it retains the
    common precedence described in language.md. No general member access is supported. *)

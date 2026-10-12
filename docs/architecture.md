@@ -40,6 +40,8 @@ Each binding has a global or frame-local slot; each IR temporary has an addition
 
 Arrays normalize to `ArrayLiteral`, `ArrayNew`, `Index`, and `IndexAssign` nodes. Static analysis fixes their primitive element type and uses invariant array signatures. Explicit array IR lowers to dedicated, validated version 2 stack instructions. VM array objects share references across assignments/calls; accesses and writes enforce integer indexes, bounds and element types. Version 1 scalar artifacts remain supported.
 
+Python-style array iteration uses a `ForEach` node with a typed, loop-local element binding. Lowering captures the array once, queries its length and emits an internal index loop using existing `ARRAY_GET`, comparison, branch and jump operations. This requires no new VM opcodes or artifact version. Continue targets the index update; assigning the loop variable does not modify the array.
+
 The server binds only to loopback, checks Host/Origin, serves an explicit static-file allowlist, and launches spawned workers. A parent wall-clock deadline terminates runaway compilation/execution. This is a local educational tool, not a public multi-user hosting service.
 
 ## P1 extension points

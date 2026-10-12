@@ -11,7 +11,7 @@ Polyglot defines one statically checked language with borrowed syntax. It does n
 | Functions | `def add(a: int, b: int) -> int:` | `int add(int a, int b) { ... }` |
 | Conditions | `if`, `elif`, `else` with suites | `if (...)`, `else if (...)`, `else` with braces |
 | While | `while condition:` | `while (condition) { ... }` |
-| For | `for i in range(...)` | `for (initializer; condition; update) { ... }` |
+| For | `for i in range(...)`, `for value in array:` | `for (initializer; condition; update) { ... }` |
 | Output | `print(...)` | `System.out.println(...)`; qualified/bare `cout` |
 | Loop control | `break`, `continue` | Same spellings |
 | Returns | `return` or `return expression` | Same spellings |
@@ -49,6 +49,8 @@ Strings support concatenation with strings, equality and lexicographic ordering.
 ## Control flow and functions
 
 `range(stop)`, `range(start, stop)` and `range(start, stop, step)` require integers, evaluate arguments once, exclude the bound, and support either step sign. Zero step fails at runtime.
+
+`for value in array_expression:` supports one-dimensional arrays of any primitive element type, regardless of their declaration syntax. Evaluate the expression once and retain its array reference and fixed length. Read each element at the start of its iteration; mutations to later elements are visible, while rebinding the source variable does not change the captured array. The loop-local variable has the element type and receives a copy of each primitive value. Assigning it does not mutate the array. Empty arrays execute no iterations; `continue` advances to the next element and `break` exits. General iterable objects, string iteration, tuple unpacking and `for ... else` are unsupported.
 
 Three-part loops support optional declaration/assignment initializer, optional Boolean condition, and optional assignment/compound-assignment/`i++`/`i--` update. Missing condition means true. `continue` runs the update; `break` skips it. Increment/decrement outside the update position is unsupported.
 

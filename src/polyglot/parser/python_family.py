@@ -36,12 +36,15 @@ def for_loop(p):
     start = p.expect("for")
     variable = p.expect("NAME")
     p.expect("in")
-    p.expect("range")
-    args = p.arguments()
-    if not 1 <= len(args) <= 3:
+    iterable = expression(p)
+    is_range = iterable.kind == "Call" and iterable.data["name"] == "range"
+    if is_range and not 1 <= len(iterable.data["args"]) <= 3:
         p.error(variable, "P021", "range requires one, two, or three arguments.")
     if not p.at(":"):
-        p.error(p.peek(), "P001", "Range-loop headers require a colon.")
+        p.error(p.peek(), "P001", "Python-style for-loop headers require a colon.")
     body = p.suite(start)
-    node = Node("Range", p.join(start.span, body.span), {"name": variable.text, "args": args, "body": body})
-    return p.record(node, "Python", "range-loop", ["for/in/range and indentation"])
+    if is_range:
+        node = Node("Range", p.join(start.span, body.span), {"name": variable.text, "args": iterable.data["args"], "body": body})
+        return p.record(node, "Python", "range-loop", ["for/in/range and indentation"])
+    node = Node("ForEach", p.join(start.span, body.span), {"name": variable.text, "iterable": iterable, "body": body})
+    return p.record(node, "Python", "for-in-loop", ["for/in expression and indentation"])

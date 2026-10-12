@@ -278,7 +278,7 @@ class Analyzer:
                 exits.append(before)
             self.assigned = set.intersection(*exits) if exits else before
             return bool(exits)
-        elif node.kind in ("While", "For", "Range"):
+        elif node.kind in ("While", "For", "Range", "ForEach"):
             old_scope, before = self.scope, set(self.assigned)
             self.enter()
             if node.kind == "Range":
@@ -286,6 +286,15 @@ class Analyzer:
                     if self.expr(arg) != "int":
                         self.error(arg, "S014", "range arguments must be integers.")
                 symbol = self.bind(node, d["name"], "int")
+                self.attach(node, symbol)
+                self.assigned.add(symbol.id)
+                after = before
+            elif node.kind == "ForEach":
+                iterable_type = self.expr(d["iterable"])
+                if not is_array(iterable_type):
+                    self.error(d["iterable"], "S027", "Python-style for-in iteration requires an array.",
+                               "Iterate over an array, or use for name in range(...).")
+                symbol = self.bind(node, d["name"], iterable_type[:-2])
                 self.attach(node, symbol)
                 self.assigned.add(symbol.id)
                 after = before

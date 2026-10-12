@@ -4,11 +4,13 @@ Verified on October 13, 2026, with Python 3.11.8 and pytest 8.2.0.
 
 ## Automated checks
 
-`python -m pytest -q`: **171 passed, 0 failed**. The complete suite includes eight real loopback HTTP tests with spawned compiler workers. Restricted sandbox client networking required running those checks outside the socket restriction.
+`python -m pytest -q`: **197 passed, 0 failed**. The complete suite includes nine real loopback HTTP tests with spawned compiler workers. Restricted sandbox client networking required running those checks outside the socket restriction.
 
 Coverage includes lexer/source positions, comments/strings, structural parsing, grammar attribution, AST normalization, expression/type/scope behavior, definite assignment, functions/recursion, loop variants/control, short-circuiting, artifact validation/round trips, CLI streams/exit codes, web operations and execution limits. Seeded malformed-input checks also exercise parser termination.
 
 Array coverage includes literals, all primitive element types, typed C/Java-style declarations, default allocation, empty/contextual literals, indexed assignments, argument/return types, reference sharing, fresh allocations, evaluation order, bounds, length/resource limits, invalid array bytecode and version 1 compatibility.
+
+Array iteration coverage includes Java/C++ declarations with Python-style for-in loops, all primitive element types, empty arrays, iterator evaluation once, loop-variable scope, element copying, captured references, mutations, nested/mixed blocks, continue/break, typed functions and non-array diagnostics.
 
 `node --check src/polyglot/web/static/app.js` and Python `compileall` completed without errors.
 
@@ -19,6 +21,7 @@ Array coverage includes literals, all primitive element types, typed C/Java-styl
 - CLI build and exec produced the same output. An automated test deletes the source before executing its artifact.
 - A fresh virtual environment created with `--without-pip` ran both mandatory programs through the source-tree launcher. No compiler runtime packages were installed.
 - `arrays_mixed.poly`: `15`, `7`, and `[1, 7, 3, 4] 4`. CLI build/exec and real HTTP build/exec produced the same result. The existing saved version 1 mixed-demo artifact also executed successfully with the updated VM.
+- `array_iteration.poly`: `1` through `5` on separate lines. CLI run/build/exec, HTTP build/exec, and the live IDE all produced the expected result using a Java-style array declaration with a Python-style for-in loop.
 
 ## Browser checks
 
@@ -35,6 +38,8 @@ Opened the running IDE at `http://127.0.0.1:8765` and verified:
 The saved preview is [ide-demo.jpg](ide-demo.jpg). The IDE was left running with the main mixed example and IR panel selected.
 
 For the array update, the live IDE ran `arrays_mixed.poly`, displayed `int[]` symbols and real array IR instructions, and reported `R012` for an out-of-bounds access with its source location. The array example was restored and left open; see [arrays-demo.jpg](arrays-demo.jpg).
+
+For the iteration fix, the IDE ran `array_iteration.poly` and exposed the actual `ForEach` AST and its array/branch IR. That example was left open; see [array-iteration.jpg](array-iteration.jpg).
 
 ## Remaining work and limits
 

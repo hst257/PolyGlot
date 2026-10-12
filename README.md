@@ -90,6 +90,16 @@ python .\run_polyglot.py run .\examples\arrays_mixed.poly
 
 Expected output: `15`, `7`, and `[1, 7, 3, 4] 4` on separate lines. New bytecode uses format version 2; legacy scalar version 1 artifacts remain executable.
 
+Python-style iteration also works over arrays declared using another syntax:
+
+```text
+int[] arr = {1, 2, 3, 4, 5};
+for num in arr:
+    print(num)
+```
+
+Select `array_iteration.poly` to run this example. The iterable expression is evaluated once; each loop iteration reads the next element. The loop variable is local to the loop and changing it does not write back to the array.
+
 Optional C `printf`, JavaScript and BASIC syntax are **disabled**. Unannotated functions, advanced error recovery, optimization, classes, other collection types, imports and general object/member operations are unsupported. The compiler stops at the first error; it never executes invalid source. Initialization and return analysis are deliberately conservative.
 
 ## Documentation

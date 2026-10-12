@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "polyglot-compiler"
-version = "0.2.0"
+version = "0.2.1"
 description = "An educational compiler for a restricted mixed-syntax language"
 requires-python = ">=3.11"
 dependencies = []
