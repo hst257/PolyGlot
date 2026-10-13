@@ -17,5 +17,6 @@
   "python_style.poly": "def square(value: int) -> int:\n    return value * value\n\nfor i in range(1, 4):\n    print(square(i))\n",
   "recursion.poly": "print(factorial(6))\n\ndef factorial(n: int) -> int:\n    if n <= 1:\n        return 1\n    return n * factorial(n - 1)\n",
   "short_circuit.poly": "boolean safe = false && (1 / 0 > 0);\nprint(safe)\nprint(True or (1 / 0 > 0))\n",
-  "while_mixed.poly": "def count(limit: int) -> void:\n    int value = 0;\n    while (value < limit) {\n        System.out.println(value);\n        value += 1\n    }\n\ncount(3);\n"
+  "while_mixed.poly": "def count(limit: int) -> void:\n    int value = 0;\n    while (value < limit) {\n        System.out.println(value);\n        value += 1\n    }\n\ncount(3);\n",
+  "ember_demo.poly": "total = 0\n\nint add(int a, int b) {\n    return a + b;\n}\n\ndef twice(value: int) -> int:\n    return add(value, value)\n\nfor i in range(4):\n    total = add(total, i)\n    System.out.println(total);\n\nint result = twice(total);\nconsole.log(result);\n\nnumbers = [10, 20, 30];\n\nif result > 5:\n    print(\"Polyglot works!\")\n"
 }

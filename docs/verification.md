@@ -79,6 +79,24 @@ The live IDE ran `p1_mixed.poly` with its exact expected output and displayed `S
 
 Dark/light contrast: body text 18.12/17.85, muted text 7.52/5.25, primary action text 9.49/9.49, error text 8.60/6.52, input boundaries 3.48/3.32. Previews: [dark](ui-aether-dark.jpg) and [light](ui-aether-light.jpg). The running IDE was left in the reference's dark palette with the mixed example and IR panel selected.
 
+## Polyglot Ember highlighting
+
+The full Python suite remained **259 passed**. The Node tokenizer suite passed **15 tests**, covering mixed families, precedence of strings/comments, escapes, incomplete input, exact type/API recognition, arrays/operators, bracket matching, lossless source offsets, seeded malformed input and a near-limit source file. JavaScript syntax checking and diff whitespace checks passed. The backend/compiler/API files remain unchanged.
+
+Live Chromium checks verified:
+
+- Exact prescribed token colors, 15px/24px font metrics, matching desktop/mobile padding, identical textarea/overlay source and synchronized viewport dimensions.
+- Native typing, Tab, Shift+Tab, indentation Backspace, Enter, ordinary Backspace, Delete and selected-text deletion with undo/redo. Clipboard copy/paste succeeded; the initial empty clipboard was restored.
+- Active-line and matching-bracket feedback; brackets inside strings were excluded. A string containing an HTML event-handler payload created no image/script elements.
+- Vertical scrolling through a 1,202-line source synchronized the textarea, highlight layer and gutter. A 2,000-character line synchronized horizontal scrolling. A 98,000-character file highlighted losslessly with readable four-digit gutter numbers. Above the highlighter limit, native plain text stayed readable and normal highlighting recovered on loading a smaller example.
+- The requested `ember_demo.poly` printed `0`, `1`, `3`, `6`, `12`, `Polyglot works!`; all six inspection panels remained real compiler data.
+- Build/download and subsequent bytecode upload reproduced that output after replacing editor source. Upload/run of `p1_mixed.poly` printed its expected output; saved source matched its repository file exactly.
+- `S004` navigation selected the correct character while the overlay stayed synchronized. Actual compiler failure applied the prescribed `#F38BA8` focus emphasis; editing cleared it without inventing an error for incomplete source. Both page themes and the 390px layout worked; the viewport override was reset. Browser warnings/errors were empty.
+
+The fresh verification IDE runs at `http://127.0.0.1:8766`, with the six-family example and IR selected. The existing 8765 instance had a cached example catalog, so verification used a separate fresh instance. Preview: [ui-ember.jpg](ui-ember.jpg). Limitations and browser compatibility are documented in [highlighting.md](highlighting.md).
+
+The weakest source-token contrast is 6.49 against the editor background and 5.72 against the active-line background; gutter contrast is 5.07. All exceed the 4.5 text-contrast target.
+
 ## Remaining work and limits
 
 Optional BASIC labels/GOTO, benchmarks, optimization and advanced recovery remain deferred. The implemented P1 spellings are documented subsets with shared Polyglot semantics, including mandatory annotations for JavaScript-style functions and literal `printf` formats limited to `%d`, `%f`, `%s` and `%%`. Optional editable package installation was not verified: the system Python lacked wheel tooling. The dependency-free source-tree launcher was verified instead.

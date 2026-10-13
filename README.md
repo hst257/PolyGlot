@@ -25,6 +25,8 @@ The IDE includes source editing, Check, Run, Build/download, source upload/downl
 
 Ctrl+Enter runs; Tab/Shift+Tab indent or unindent selected lines. Backspace removes one four-space indentation level when the cursor has no selection and sits at a leading indentation boundary; elsewhere it deletes normally. Arrow keys, Home and End navigate compiler stage tabs. The entire application works offline and uses system fonts and bundled assets.
 
+The source editor uses the **Polyglot Ember** syntax palette for mixed-language keywords, types, calls, built-ins, literals, operators and comments. It retains native textarea editing, synchronized scrolling, undo/redo, active-line and matching-bracket feedback. Select `ember_demo.poly` for the supplied highlighting demonstration. Visual highlighting does not change compiler semantics.
+
 Press Ctrl+C in the server terminal to stop it. Use `serve --port 8766` if port 8765 is occupied.
 
 ## CLI
@@ -55,6 +57,12 @@ The source-tree launcher avoids installation and works offline. Tests require py
 ```powershell
 python -m pip install pytest
 python -m pytest -q
+```
+
+Frontend tokenizer tests use Node's built-in runner (development only):
+
+```powershell
+node --test tests/web/highlighting.test.cjs
 ```
 
 Pytest uses `src/` automatically. HTTP integration tests connect only to loopback and spawn real compiler workers. In a restricted environment that forbids local sockets, run `python -m pytest -q -m "not network"`; run the complete suite in an environment that permits loopback connections.
@@ -136,5 +144,6 @@ Unannotated functions, advanced error recovery, optimization, classes, other col
 - [Actual verification results](docs/verification.md)
 - [UI design and icon maintenance](docs/ui-design.md)
 - [Supplied visual reference](DESIGN.md)
+- [Ember highlighting and editor maintenance](docs/highlighting.md)
 
 Compiler modules live in `src/polyglot/`; the offline interface lives in `src/polyglot/web/static/`. `examples/` contains valid and intentionally invalid programs. Presentation deliverables remain in `presentation/output/`.

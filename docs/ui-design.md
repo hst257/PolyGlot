@@ -8,6 +8,8 @@ The current visual reference is the supplied [DESIGN.md](../DESIGN.md), copied w
 
 Settings: `DESIGN_VARIANCE: 5`, `MOTION_INTENSITY: 2`, `VISUAL_DENSITY: 6`. This is a product interface, so marketing-specific hero, imagery and scroll-animation rules do not apply. The textarea and its editing behavior are preserved.
 
+The source area now uses the separately requested Polyglot Ember syntax palette and 15px/24px monospace metrics. The surrounding page continues to follow DESIGN.md. See [highlighting.md](highlighting.md) for tokenization, overlay synchronization, editing and limitations.
+
 ## Visual rules
 
 - Dark mode uses reference amber `#F59E0B`, background `#050505`, surface `#1A1510`, white text, muted `#A1A1AA` and border `#27272A`. Main actions use reference amber with near-black text in both themes. The existing light theme uses warm neutrals and darker amber for readable accent text. Error colors express errors only.

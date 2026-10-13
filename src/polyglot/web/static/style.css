@@ -92,12 +92,44 @@ kbd { font: 10px var(--mono); }
 .primary { background: var(--action); border-color: var(--action); color: var(--on-accent); }
 .primary:hover { background: var(--action-hover); border-color: var(--action-hover); }
 .primary kbd { opacity: .8; font-size: 9px; margin-left: 5px; }
-.editor-wrap { display: flex; height: clamp(350px, 50dvh, 620px); overflow: hidden; }
-#lines { margin: 0; padding: 20px 12px 20px 18px; width: 49px; flex-shrink: 0; text-align: right; color: var(--muted); background: var(--surface-subtle); border-right: 1px solid var(--line); font: 12px/24px var(--mono); overflow: hidden; user-select: none; }
-#editor { flex: 1; min-width: 0; padding: 20px 18px; background: var(--surface); color: var(--ink); border: 0; border-radius: 0; resize: none; outline: none; font: 13px/24px var(--mono); tab-size: 4; white-space: pre; overflow: auto; caret-color: var(--accent); }
+.editor-wrap {
+  --ember-bg: #1b1613; --ember-fg: #e8e1db; --ember-keyword: #cba6f7;
+  --ember-function: #89b4fa; --ember-type: #89dceb; --ember-string: #a6e3a1;
+  --ember-number: #fab387; --ember-builtin: #f6c177; --ember-constant: #f5c2e7;
+  --ember-operator: #d6c9bc; --ember-punctuation: #c4b6ac; --ember-comment: #a39a92;
+  --ember-line-number: #92867f; --ember-error: #f38ba8; --ember-caret: #f59e0b;
+  --ember-current-line: #29211c; --ember-selection: #51402c; --ember-bracket: #55412b;
+  display: flex; height: clamp(350px, 50dvh, 620px); overflow: hidden; background: var(--ember-bg);
+}
+#lines { margin: 0; padding: 20px 12px 20px 18px; min-width: 49px; width: auto; flex-shrink: 0; text-align: right; color: var(--ember-line-number); background: var(--ember-bg); border-right: 1px solid #302820; font: 12px/24px var(--mono); overflow: hidden; user-select: none; }
+.source-pane { position: relative; flex: 1; min-width: 0; height: 100%; overflow: hidden; background: var(--ember-bg); }
+#highlight-layer, #editor { margin: 0; padding: 20px 18px; border: 0; border-radius: 0; font: 15px/24px var(--mono); font-variant-ligatures: none; letter-spacing: 0; tab-size: 4; white-space: pre; overflow-wrap: normal; word-break: normal; text-align: left; }
+#editor { position: relative; z-index: 1; display: block; width: 100%; height: 100%; min-width: 0; resize: none; outline: none; overflow: auto; background: var(--ember-bg); color: var(--ember-fg); caret-color: var(--ember-caret); }
+#highlight-layer { position: absolute; inset: 0; overflow: hidden; color: var(--ember-fg); pointer-events: none; visibility: hidden; }
+.highlight-ready #highlight-layer { visibility: visible; }
+.highlight-ready #editor { background: transparent; color: transparent; -webkit-text-fill-color: transparent; }
+#active-line { position: absolute; left: 0; right: 0; height: 24px; pointer-events: none; background: var(--ember-current-line); opacity: 0; }
+.source-pane:focus-within #active-line { opacity: 1; }
+.syntax-keyword { color: var(--ember-keyword); }
+.syntax-function { color: var(--ember-function); }
+.syntax-type { color: var(--ember-type); }
+.syntax-string { color: var(--ember-string); }
+.syntax-number { color: var(--ember-number); }
+.syntax-builtin { color: var(--ember-builtin); }
+.syntax-constant { color: var(--ember-constant); }
+.syntax-operator { color: var(--ember-operator); }
+.syntax-punctuation { color: var(--ember-punctuation); }
+.syntax-comment { color: var(--ember-comment); }
+.matching-bracket { background: var(--ember-bracket); border-radius: 2px; }
+.highlight-tail { color: transparent; }
 .editor-wrap:focus-within { box-shadow: inset 0 0 0 2px var(--accent); }
 #editor:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-#editor::selection { background: var(--accent-soft); }
+.source-pane.compiler-error #editor:focus-visible { outline-color: var(--ember-error); }
+#editor::selection { background: var(--ember-selection); color: var(--ember-fg); -webkit-text-fill-color: var(--ember-fg); }
+@media (forced-colors: active) {
+  #highlight-layer, #active-line { visibility: hidden !important; }
+  .highlight-ready #editor { color: CanvasText; -webkit-text-fill-color: CanvasText; background: Canvas; caret-color: CanvasText; }
+}
 .editor-footer { display: flex; justify-content: space-between; gap: 8px; padding: 8px 15px; border-top: 1px solid var(--line); background: var(--surface-subtle); color: var(--muted); font: 10px/1.5 var(--mono); }
 .footer-separator { margin: 0 7px; color: var(--muted); }
 .console { border-top: 1px solid var(--line); padding: 16px 20px; }
@@ -160,8 +192,8 @@ kbd { font: 10px var(--mono); }
   .actions { margin-left: 0; width: 100%; }
   .actions button { flex: 1; min-height: 36px; }
   .editor-wrap { height: 360px; }
-  #lines { width: 40px; padding-left: 10px; padding-right: 8px; }
-  #editor { padding-left: 12px; padding-right: 12px; }
+  #lines { min-width: 40px; padding-left: 10px; padding-right: 8px; }
+  #editor, #highlight-layer { padding-left: 12px; padding-right: 12px; }
   .console { padding: 16px; }
   .inspector { grid-column: 1; }
   .tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }

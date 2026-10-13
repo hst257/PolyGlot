@@ -85,7 +85,11 @@
     </div>
     <div class="editor-wrap">
       <pre id="lines" aria-hidden="true">1</pre>
-      <textarea id="editor" aria-label="Program source" spellcheck="false" wrap="off" autocapitalize="off" autocomplete="off" autocorrect="off" aria-describedby="editor-help"></textarea>
+      <div class="source-pane" id="source-pane">
+        <div id="active-line" aria-hidden="true"></div>
+        <pre id="highlight-layer" aria-hidden="true"></pre>
+        <textarea id="editor" aria-label="Program source" spellcheck="false" wrap="off" autocapitalize="off" autocomplete="off" autocorrect="off" aria-describedby="editor-help"></textarea>
+      </div>
     </div>
     <div class="editor-footer"><span id="position">Line 1, column 1</span><span id="editor-help">4 spaces <span class="footer-separator" aria-hidden="true">/</span> UTF-8</span></div>
     <section class="console" aria-labelledby="output-heading">
