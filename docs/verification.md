@@ -46,6 +46,8 @@ For the iteration fix, the IDE ran `array_iteration.poly` and exposed the actual
 
 For P1, a separate IDE tab ran `p1_mixed.poly` successfully. Recognition showed JavaScript, Python, BASIC, C, Java and C++; Symbols showed the inferred array type and immutable `bonus` binding; IR contained real `FORMAT` instructions. A BASIC assignment to a JavaScript-style constant reported `S028` at line 2. The working mixed example was restored and left open; see [p1-demo.jpg](p1-demo.jpg).
 
+For indentation Backspace, nine live-browser checks verified Tab-created and Enter-created indentation, moving from eight spaces to four and four to zero, preserving following code, and ordinary deletion off boundaries, after code, within code, with selected whitespace and at a line start. The cursor and source-change status updated correctly. A program ran successfully after deleting one indentation level; see [indentation-backspace.jpg](indentation-backspace.jpg). JavaScript syntax checking and diff whitespace checks passed; the compiler code was unchanged.
+
 ## Remaining work and limits
 
 Optional BASIC labels/GOTO, benchmarks, optimization and advanced recovery remain deferred. The implemented P1 spellings are documented subsets with shared Polyglot semantics, including mandatory annotations for JavaScript-style functions and literal `printf` formats limited to `%d`, `%f`, `%s` and `%%`. Optional editable package installation was not verified: the system Python lacked wheel tooling. The dependency-free source-tree launcher was verified instead.

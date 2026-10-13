@@ -69,6 +69,16 @@ editor.addEventListener("click", updateEditor);
 editor.addEventListener("keyup", updateEditor);
 editor.addEventListener("scroll", () => { $("lines").scrollTop = editor.scrollTop; });
 editor.addEventListener("keydown", event => {
+  if (event.key === "Backspace" && !event.ctrlKey && !event.metaKey && !event.altKey && !event.isComposing) {
+    const start = editor.selectionStart;
+    const lineStart = editor.value.lastIndexOf("\n", start - 1) + 1;
+    const indentation = editor.value.slice(lineStart, start);
+    if (start === editor.selectionEnd && /^ +$/.test(indentation) && indentation.length % 4 === 0) {
+      event.preventDefault();
+      editor.setRangeText("", start - 4, start, "end");
+      dirty();
+    }
+  }
   if (event.key === "Tab") {
     event.preventDefault();
     const start = editor.selectionStart, end = editor.selectionEnd;

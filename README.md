@@ -21,7 +21,7 @@ Open **http://127.0.0.1:8765**. Select `mixed_demo.poly` and click **Run**. The 
 done
 ```
 
-The IDE includes source editing, Check, Run, Build/download, source upload/download, bytecode upload/execution, diagnostics and actual recognition/token/AST/symbol/IR/bytecode inspection. Ctrl+Enter runs; Tab/Shift+Tab indent or unindent selected lines. The entire application works offline and uses system fonts and bundled assets.
+The IDE includes source editing, Check, Run, Build/download, source upload/download, bytecode upload/execution, diagnostics and actual recognition/token/AST/symbol/IR/bytecode inspection. Ctrl+Enter runs; Tab/Shift+Tab indent or unindent selected lines. Backspace removes one four-space indentation level when the cursor has no selection and sits at a leading indentation boundary; elsewhere it deletes normally. The entire application works offline and uses system fonts and bundled assets.
 
 Press Ctrl+C in the server terminal to stop it. Use `serve --port 8766` if port 8765 is occupied.
 
