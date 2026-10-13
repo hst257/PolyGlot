@@ -97,6 +97,8 @@ The fresh verification IDE runs at `http://127.0.0.1:8766`, with the six-family 
 
 The weakest source-token contrast is 6.49 against the editor background and 5.72 against the active-line background; gutter contrast is 5.07. All exceed the 4.5 text-contrast target.
 
+The subsequent focus refinement removed the yellow editor outline and inset frame. In the live IDE, the focused source field reported no outline or frame shadow, while the amber caret and current-line shading remained visible. The six-family example still ran correctly; see [ui-quiet-focus.jpg](ui-quiet-focus.jpg). This was a CSS-only change with no new compiler or highlighter logic.
+
 ## Remaining work and limits
 
 Optional BASIC labels/GOTO, benchmarks, optimization and advanced recovery remain deferred. The implemented P1 spellings are documented subsets with shared Polyglot semantics, including mandatory annotations for JavaScript-style functions and literal `printf` formats limited to `%d`, `%f`, `%s` and `%%`. Optional editable package installation was not verified: the system Python lacked wheel tooling. The dependency-free source-tree launcher was verified instead.
