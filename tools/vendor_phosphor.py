@@ -12,7 +12,7 @@ import tarfile
 ROOT = Path(__file__).resolve().parents[1]
 ICONS = ("code", "folder-open", "download-simple", "file-code", "play", "check-circle",
          "package", "terminal-window", "tree-structure", "magnifying-glass", "sun", "moon",
-         "keyboard", "shield-check", "caret-right", "brackets-curly")
+         "keyboard", "shield-check", "caret-right", "brackets-curly", "arrows-out", "arrows-in")
 
 
 def vendor(archive: Path):

@@ -20,6 +20,12 @@ The source area now uses the separately requested Polyglot Ember syntax palette 
 - Hover, press and focus feedback only. Reduced-motion preferences remove transitions.
 - Below 1024px the inspector moves below the editor; below 768px the sidebar becomes a compact top section. No horizontal page scrolling.
 
+## Maximized editor
+
+The toolbar's Phosphor maximize button opens a viewport-sized workbench, hiding the header, files, inspector and footer. The normal workspace layout remains available through Restore or Escape. The original textarea is reused so source, selection and native undo history survive the transition.
+
+A four-row CSS grid holds the toolbar, flexible editor, 10px divider and bottom output pane. Only source and console content scroll; the output heading stays visible. Pointer capture supports mouse/touch dragging, with cleanup on release, cancellation, window blur and restore. Height limits keep both panes usable and adapt on viewport changes. The focusable separator exposes its current height and supports Up/Down, Shift+Up/Down, Home and End. Execution status is also shown beside the output heading in this mode.
+
 ## Icons and backend boundary
 
 Official regular-weight SVGs come from `@phosphor-icons/core@2.1.1`. Originals and MIT license are in `third_party/phosphor/`. `tools/vendor_phosphor.py` regenerates the inline HTML sprite. Icons inherit text color and are hidden from assistive technology; controls retain text or accessible labels.

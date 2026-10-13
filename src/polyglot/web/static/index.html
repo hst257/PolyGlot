@@ -28,6 +28,8 @@
 <symbol id="ph-shield-check" viewBox="0 0 256 256"><path d="M208,40H48A16,16,0,0,0,32,56v56c0,52.72,25.52,84.67,46.93,102.19,23.06,18.86,46,25.26,47,25.53a8,8,0,0,0,4.2,0c1-.27,23.91-6.67,47-25.53C198.48,196.67,224,164.72,224,112V56A16,16,0,0,0,208,40Zm0,72c0,37.07-13.66,67.16-40.6,89.42A129.3,129.3,0,0,1,128,223.62a128.25,128.25,0,0,1-38.92-21.81C61.82,179.51,48,149.3,48,112l0-56,160,0ZM82.34,141.66a8,8,0,0,1,11.32-11.32L112,148.69l50.34-50.35a8,8,0,0,1,11.32,11.32l-56,56a8,8,0,0,1-11.32,0Z"/></symbol>
 <symbol id="ph-caret-right" viewBox="0 0 256 256"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></symbol>
 <symbol id="ph-brackets-curly" viewBox="0 0 256 256"><path d="M43.18,128a29.78,29.78,0,0,1,8,10.26c4.8,9.9,4.8,22,4.8,33.74,0,24.31,1,36,24,36a8,8,0,0,1,0,16c-17.48,0-29.32-6.14-35.2-18.26-4.8-9.9-4.8-22-4.8-33.74,0-24.31-1-36-24-36a8,8,0,0,1,0-16c23,0,24-11.69,24-36,0-11.72,0-23.84,4.8-33.74C50.68,38.14,62.52,32,80,32a8,8,0,0,1,0,16C57,48,56,59.69,56,84c0,11.72,0,23.84-4.8,33.74A29.78,29.78,0,0,1,43.18,128ZM240,120c-23,0-24-11.69-24-36,0-11.72,0-23.84-4.8-33.74C205.32,38.14,193.48,32,176,32a8,8,0,0,0,0,16c23,0,24,11.69,24,36,0,11.72,0,23.84,4.8,33.74a29.78,29.78,0,0,0,8,10.26,29.78,29.78,0,0,0-8,10.26c-4.8,9.9-4.8,22-4.8,33.74,0,24.31-1,36-24,36a8,8,0,0,0,0,16c17.48,0,29.32-6.14,35.2-18.26,4.8-9.9,4.8-22,4.8-33.74,0-24.31,1-36,24-36a8,8,0,0,0,0-16Z"/></symbol>
+<symbol id="ph-arrows-out" viewBox="0 0 256 256"><path d="M216,48V96a8,8,0,0,1-16,0V67.31l-42.34,42.35a8,8,0,0,1-11.32-11.32L188.69,56H160a8,8,0,0,1,0-16h48A8,8,0,0,1,216,48ZM98.34,146.34,56,188.69V160a8,8,0,0,0-16,0v48a8,8,0,0,0,8,8H96a8,8,0,0,0,0-16H67.31l42.35-42.34a8,8,0,0,0-11.32-11.32ZM208,152a8,8,0,0,0-8,8v28.69l-42.34-42.35a8,8,0,0,0-11.32,11.32L188.69,200H160a8,8,0,0,0,0,16h48a8,8,0,0,0,8-8V160A8,8,0,0,0,208,152ZM67.31,56H96a8,8,0,0,0,0-16H48a8,8,0,0,0-8,8V96a8,8,0,0,0,16,0V67.31l42.34,42.35a8,8,0,0,0,11.32-11.32Z"/></symbol>
+<symbol id="ph-arrows-in" viewBox="0 0 256 256"><path d="M144,104V64a8,8,0,0,1,16,0V84.69l42.34-42.35a8,8,0,0,1,11.32,11.32L171.31,96H192a8,8,0,0,1,0,16H152A8,8,0,0,1,144,104Zm-40,40H64a8,8,0,0,0,0,16H84.69L42.34,202.34a8,8,0,0,0,11.32,11.32L96,171.31V192a8,8,0,0,0,16,0V152A8,8,0,0,0,104,144Zm67.31,16H192a8,8,0,0,0,0-16H152a8,8,0,0,0-8,8v40a8,8,0,0,0,16,0V171.31l42.34,42.35a8,8,0,0,0,11.32-11.32ZM104,56a8,8,0,0,0-8,8V84.69L53.66,42.34A8,8,0,0,0,42.34,53.66L84.69,96H64a8,8,0,0,0,0,16h40a8,8,0,0,0,8-8V64A8,8,0,0,0,104,56Z"/></symbol>
 </defs></svg>
 <!-- Phosphor sprite end -->
 <a class="skip-link" href="#editor">Skip to editor</a>
@@ -81,6 +83,7 @@
         <button id="check" data-operation="check"><svg class="icon" aria-hidden="true"><use href="#ph-check-circle"></use></svg>Check</button>
         <button id="build" data-operation="build"><svg class="icon" aria-hidden="true"><use href="#ph-package"></use></svg>Build .pbc</button>
         <button class="primary" id="run" data-operation="run"><svg class="icon" aria-hidden="true"><use href="#ph-play"></use></svg>Run<kbd>Ctrl ↵</kbd></button>
+        <button id="maximize-editor" class="icon-button" aria-label="Maximize editor" title="Maximize editor" aria-pressed="false" aria-controls="workbench"><svg class="icon" aria-hidden="true"><use id="maximize-icon" href="#ph-arrows-out"></use></svg></button>
       </div>
     </div>
     <div class="editor-wrap">
@@ -92,10 +95,14 @@
       </div>
     </div>
     <div class="editor-footer"><span id="position">Line 1, column 1</span><span id="editor-help">4 spaces <span class="footer-separator" aria-hidden="true">/</span> UTF-8</span></div>
-    <section class="console" aria-labelledby="output-heading">
-      <div class="panel-heading"><h2 id="output-heading"><svg class="icon" aria-hidden="true"><use href="#ph-terminal-window"></use></svg>Program output</h2><span id="execution-info"></span></div>
-      <pre id="output" aria-live="polite" data-empty="true">Run a program to see its output.</pre>
-      <div id="diagnostics" aria-live="polite"></div>
+    <div id="output-resizer" role="separator" tabindex="0" aria-label="Resize program output" aria-orientation="horizontal" aria-controls="program-console" aria-valuemin="96" aria-valuemax="400" aria-valuenow="220" aria-describedby="resize-help" hidden><span aria-hidden="true"></span></div>
+    <span id="resize-help" class="sr-only" hidden>Drag or use Up and Down arrows to resize output. Home minimizes output; End maximizes it.</span>
+    <section id="program-console" class="console" aria-labelledby="output-heading">
+      <div class="panel-heading"><h2 id="output-heading"><svg class="icon" aria-hidden="true"><use href="#ph-terminal-window"></use></svg>Program output</h2><div class="console-meta"><span id="workspace-status" role="status" data-state="ready">Ready</span><span id="execution-info"></span></div></div>
+      <div class="console-content">
+        <pre id="output" aria-live="polite" data-empty="true">Run a program to see its output.</pre>
+        <div id="diagnostics" aria-live="polite"></div>
+      </div>
     </section>
   </section>
   <section class="inspector" aria-labelledby="inspector-heading">

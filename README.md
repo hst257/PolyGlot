@@ -25,6 +25,8 @@ The IDE includes source editing, Check, Run, Build/download, source upload/downl
 
 Ctrl+Enter runs; Tab/Shift+Tab indent or unindent selected lines. Backspace removes one four-space indentation level when the cursor has no selection and sits at a leading indentation boundary; elsewhere it deletes normally. Arrow keys, Home and End navigate compiler stage tabs. The entire application works offline and uses system fonts and bundled assets.
 
+Click the maximize icon beside Run for an editor-only workspace with Check/Build/Run and docked program output. The editor and output scroll independently. Drag the divider up or down to resize output, or focus it and use Up/Down (Shift for larger steps), Home or End. Click Restore or press Escape to return; source, selection and undo history are preserved.
+
 The source editor uses the **Polyglot Ember** syntax palette for mixed-language keywords, types, calls, built-ins, literals, operators and comments. It retains native textarea editing, synchronized scrolling, undo/redo, active-line and matching-bracket feedback. Select `ember_demo.poly` for the supplied highlighting demonstration. Visual highlighting does not change compiler semantics.
 
 Press Ctrl+C in the server terminal to stop it. Use `serve --port 8766` if port 8765 is occupied.

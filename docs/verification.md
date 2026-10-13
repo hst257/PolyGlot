@@ -99,6 +99,20 @@ The weakest source-token contrast is 6.49 against the editor background and 5.72
 
 The subsequent focus refinement removed the yellow editor outline and inset frame. In the live IDE, the focused source field reported no outline or frame shadow, while the amber caret and current-line shading remained visible. The six-family example still ran correctly; see [ui-quiet-focus.jpg](ui-quiet-focus.jpg). This was a CSS-only change with no new compiler or highlighter logic.
 
+## Maximized IDE and resizable output
+
+JavaScript syntax checking, all **15 Node highlighter tests**, all **4 CLI/web-worker tests**, and diff whitespace checks passed. The compiler, server, worker and API files are unchanged; the earlier full-suite result remains 259 passed and was not repeated for this frontend change.
+
+Live Chromium verification at `http://127.0.0.1:8766` covered:
+
+- Maximize hides the header, files, inspector and footer, leaving only the filename, Check/Build/Run/Restore toolbar, editor and output. Restore and Escape return the normal workspace. Source and selection survive; undo removes a keystroke entered before maximizing.
+- An upward mouse drag enlarged output from 220px to 350px; downward dragging clamped it to the 96px minimum. Up/Down, Shift+Up, Home and End resized the pane. At maximum height the editor retained 120px. Pointer release cleared the resize state.
+- Scrolling a 103-line source synchronized the editor/highlight layer while output stayed at the same bottom position. A 100-line output scrolled independently without moving the editor or page. New operation results reset console scrolling to the top.
+- Check succeeded, Build downloaded bytecode, and Ctrl+Enter ran the mixed program. The six-family `p1_mixed.poly` produced its expected five-line output. An `S004` error remained readable and its diagnostic selected the correct source character.
+- Both themes, a 390×844 viewport and an 844×320 landscape viewport remained usable without page overflow. The temporary viewport override was reset. Browser warning/error logs were empty.
+
+Preview: [maximized editor](ui-maximized.png), [light theme](ui-maximized-light.png). The verification tab is left open in the dark theme with the mixed program and output. Mouse dragging and keyboard controls were exercised; physical touch-device testing remains unverified.
+
 ## Remaining work and limits
 
 Optional BASIC labels/GOTO, benchmarks, optimization and advanced recovery remain deferred. The implemented P1 spellings are documented subsets with shared Polyglot semantics, including mandatory annotations for JavaScript-style functions and literal `printf` formats limited to `%d`, `%f`, `%s` and `%%`. Optional editable package installation was not verified: the system Python lacked wheel tooling. The dependency-free source-tree launcher was verified instead.

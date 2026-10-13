@@ -197,9 +197,84 @@ $("theme-toggle").addEventListener("click", () => {
 systemTheme.addEventListener("change", updateThemeButton);
 updateThemeButton();
 function setStatus(text, state = "ready") {
-  $("status").textContent = text;
-  $("status").dataset.state = state;
+  for (const id of ["status", "workspace-status"]) {
+    $(id).textContent = text;
+    $(id).dataset.state = state;
+  }
 }
+
+const workbench = $("workbench"), resizer = $("output-resizer"), maximizeButton = $("maximize-editor");
+let maximized = false, outputHeight = 220, workspaceScroll = 0, resizeDrag = null;
+function outputBounds() {
+  const available = Math.max(0, workbench.clientHeight - workbench.querySelector(".toolbar").offsetHeight - resizer.offsetHeight);
+  // Keep both panes usable, including short landscape viewports.
+  const min = Math.min(96, Math.floor(available / 2));
+  const max = Math.max(min, available - Math.min(120, Math.floor(available / 2)));
+  return {min, max};
+}
+function resizeOutput(height) {
+  if (!maximized) return;
+  const {min, max} = outputBounds();
+  outputHeight = Math.round(Math.max(min, Math.min(max, height)));
+  workbench.style.setProperty("--output-height", `${outputHeight}px`);
+  resizer.setAttribute("aria-valuemin", String(min));
+  resizer.setAttribute("aria-valuemax", String(max));
+  resizer.setAttribute("aria-valuenow", String(outputHeight));
+  resizer.setAttribute("aria-valuetext", `Output height ${outputHeight} pixels`);
+}
+function finishOutputResize(event) {
+  if (resizeDrag && event?.pointerId !== undefined && event.pointerId !== resizeDrag.pointerId) return;
+  const drag = resizeDrag;
+  resizeDrag = null;
+  document.body.classList.remove("resizing-output");
+  if (drag && resizer.hasPointerCapture(drag.pointerId)) resizer.releasePointerCapture(drag.pointerId);
+}
+function setMaximized(next) {
+  finishOutputResize();
+  if (next) workspaceScroll = window.scrollY;
+  maximized = next;
+  document.body.classList.toggle("editor-maximized", next);
+  resizer.hidden = !next;
+  $("resize-help").hidden = !next;
+  const label = next ? "Restore editor" : "Maximize editor";
+  maximizeButton.setAttribute("aria-label", label);
+  maximizeButton.setAttribute("title", next ? "Restore editor (Esc)" : label);
+  maximizeButton.setAttribute("aria-pressed", String(next));
+  $("maximize-icon").setAttribute("href", next ? "#ph-arrows-in" : "#ph-arrows-out");
+  if (next) resizeOutput(outputHeight);
+  else window.scrollTo(0, workspaceScroll);
+  // Reuse the same textarea, preserving source, selection and native undo history.
+  editor.focus({preventScroll: true});
+  updateEditor();
+}
+maximizeButton.addEventListener("click", () => setMaximized(!maximized));
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && maximized && !event.isComposing) {
+    event.preventDefault(); setMaximized(false);
+    maximizeButton.focus({preventScroll: true});
+  }
+});
+resizer.addEventListener("pointerdown", event => {
+  if (!maximized || event.button !== 0 || resizeDrag) return;
+  event.preventDefault();
+  resizer.focus({preventScroll: true});
+  resizeDrag = {pointerId: event.pointerId, y: event.clientY, height: outputHeight};
+  resizer.setPointerCapture(event.pointerId);
+  document.body.classList.add("resizing-output");
+});
+resizer.addEventListener("pointermove", event => {
+  if (resizeDrag?.pointerId === event.pointerId) resizeOutput(resizeDrag.height + resizeDrag.y - event.clientY);
+});
+for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) resizer.addEventListener(name, finishOutputResize);
+window.addEventListener("blur", finishOutputResize);
+resizer.addEventListener("keydown", event => {
+  const {min, max} = outputBounds();
+  const increment = event.shiftKey ? 48 : 16;
+  const height = {ArrowUp: outputHeight + increment, ArrowDown: outputHeight - increment, Home: min, End: max}[event.key];
+  if (height !== undefined) { event.preventDefault(); resizeOutput(height); }
+});
+if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => resizeOutput(outputHeight)).observe(workbench);
+window.addEventListener("resize", () => { finishOutputResize(); resizeOutput(outputHeight); });
 
 function updateEditor() {
   if (editorSource !== editor.value) {
@@ -280,6 +355,7 @@ async function action(operation, extra = {}) {
     $("output").textContent = error.message;
     $("output").dataset.empty = "false";
   } finally {
+    workbench.querySelector(".console-content").scrollTop = 0;
     busy = false;
     $("workbench").setAttribute("aria-busy", "false");
     document.querySelectorAll("[data-operation], #upload-artifact").forEach(b => b.disabled = false);
