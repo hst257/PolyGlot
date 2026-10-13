@@ -135,5 +135,6 @@ Unannotated functions, advanced error recovery, optimization, classes, other col
 - [Professor demonstration script](docs/demo.md)
 - [Actual verification results](docs/verification.md)
 - [UI design and icon maintenance](docs/ui-design.md)
+- [Supplied visual reference](DESIGN.md)
 
 Compiler modules live in `src/polyglot/`; the offline interface lives in `src/polyglot/web/static/`. `examples/` contains valid and intentionally invalid programs. Presentation deliverables remain in `presentation/output/`.

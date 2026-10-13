@@ -69,6 +69,16 @@ Measured contrast ratios in light/dark themes: body text 12.96/13.41, muted text
 
 Saved previews: [light](ui-redesign-light.jpg), [dark](ui-redesign-dark.jpg), [mobile](ui-redesign-mobile.jpg). The IDE was left running with `p1_mixed.poly` and IR selected. Design tokens, scope and icon regeneration are documented in [ui-design.md](ui-design.md).
 
+## Aether visual restyling
+
+The supplied reference was copied byte for byte into root `DESIGN.md` (matching SHA-256). Styling follows its amber/black palette and eight-pixel surfaces, with an accessible adaptation for the existing light theme. Named font preferences use locally available fallbacks; no font download or backend route was added.
+
+A comparison with the previous commit confirmed unchanged HTML and JavaScript and identical CSS geometry, font-size/line-height and motion declarations. Changes are limited to visual tokens and panel corners. The backend is unchanged. Diff whitespace checks passed; the earlier 259-test regression result remains the baseline, and the suite was not repeated for this CSS-only change.
+
+The live IDE ran `p1_mixed.poly` with its exact expected output and displayed `S004` for the invalid type example. Both themes rendered correctly; 390px and 768px layouts had no horizontal page overflow. Browser warnings/errors were empty. The temporary viewport override was reset.
+
+Dark/light contrast: body text 18.12/17.85, muted text 7.52/5.25, primary action text 9.49/9.49, error text 8.60/6.52, input boundaries 3.48/3.32. Previews: [dark](ui-aether-dark.jpg) and [light](ui-aether-light.jpg). The running IDE was left in the reference's dark palette with the mixed example and IR panel selected.
+
 ## Remaining work and limits
 
 Optional BASIC labels/GOTO, benchmarks, optimization and advanced recovery remain deferred. The implemented P1 spellings are documented subsets with shared Polyglot semantics, including mandatory annotations for JavaScript-style functions and literal `printf` formats limited to `%d`, `%f`, `%s` and `%%`. Optional editable package installation was not verified: the system Python lacked wheel tooling. The dependency-free source-tree launcher was verified instead.
