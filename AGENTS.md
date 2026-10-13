@@ -34,6 +34,12 @@ Use Python 3.11, four-space indentation, type annotations, and small modules. Us
 
 Use plain HTML, CSS, and JavaScript with locally bundled assets.
 
+## Frontend Design
+
+Use the design-taste-frontend skill for UI work, applying its relevant audit, visual and accessibility guidance. Do not use the Sites skill. Preserve the backend and compiler behavior during UI refactors unless explicitly requested otherwise.
+
+Use Phosphor icons consistently, with regular weight and accessible text labels. Bundle official assets locally for offline use, retain their license, and avoid other icon families or hand-drawn icon paths.
+
 ## Architecture & Safety
 
 Preserve the real lexer → parser → AST → semantics → typed IR → bytecode → VM pipeline. CLI and IDE must share the compiler library.

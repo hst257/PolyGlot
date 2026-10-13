@@ -48,6 +48,27 @@ For P1, a separate IDE tab ran `p1_mixed.poly` successfully. Recognition showed 
 
 For indentation Backspace, nine live-browser checks verified Tab-created and Enter-created indentation, moving from eight spaces to four and four to zero, preserving following code, and ordinary deletion off boundaries, after code, within code, with selected whitespace and at a line start. The cursor and source-change status updated correctly. A program ran successfully after deleting one indentation level; see [indentation-backspace.jpg](indentation-backspace.jpg). JavaScript syntax checking and diff whitespace checks passed; the compiler code was unchanged.
 
+## UI refactor verification
+
+The complete regression suite remained **259 passed**. JavaScript syntax and diff whitespace checks passed. The backend, compiler and API files have no changes.
+
+Vendored SVGs and license matched the official npm package byte for byte. Sprite regeneration was deterministic, and every HTML icon reference resolved to a bundled symbol.
+
+Live browser checks verified:
+
+- The P1 mixed example's exact output and all six real inspection panels.
+- Build/download of version 3 bytecode, followed by upload/execution after replacing editor source; original output was preserved.
+- Upload/run of `mixed_nesting.poly` produced `22`; source download matched the repository file exactly.
+- Type diagnostics navigated to the correct source selection; an infinite loop reported `R001`, and a subsequent valid run succeeded.
+- Busy state disabled compilation actions while stage navigation remained usable. Completed operations restored the controls.
+- Tab, Shift+Tab, Enter autoindent, indentation Backspace, ordinary Backspace and Ctrl+Enter worked. Arrow/Home/End stage navigation updated the selected tab and panel label.
+- Light/dark themes, persisted manual theme, empty states and actual Phosphor glyphs rendered correctly under the existing Content Security Policy.
+- At 390px, 768px and 1024px viewport widths, document scroll width did not exceed client width. The inspector moved below the editor at tablet width; mobile stacked the workspace and retained file/run controls. The temporary viewport override was reset.
+
+Measured contrast ratios in light/dark themes: body text 12.96/13.41, muted text 5.22/7.12, primary button text 7.40/8.46, error text 6.42/7.60 and select boundaries 3.25/3.53. The UI uses system fonts and locally embedded icons, with no added runtime network requests. No Lighthouse or Core Web Vitals measurements are claimed.
+
+Saved previews: [light](ui-redesign-light.jpg), [dark](ui-redesign-dark.jpg), [mobile](ui-redesign-mobile.jpg). The IDE was left running with `p1_mixed.poly` and IR selected. Design tokens, scope and icon regeneration are documented in [ui-design.md](ui-design.md).
+
 ## Remaining work and limits
 
 Optional BASIC labels/GOTO, benchmarks, optimization and advanced recovery remain deferred. The implemented P1 spellings are documented subsets with shared Polyglot semantics, including mandatory annotations for JavaScript-style functions and literal `printf` formats limited to `%d`, `%f`, `%s` and `%%`. Optional editable package installation was not verified: the system Python lacked wheel tooling. The dependency-free source-tree launcher was verified instead.

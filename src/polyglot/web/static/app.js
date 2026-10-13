@@ -2,6 +2,34 @@
 const $ = id => document.getElementById(id);
 const editor = $("editor");
 let stages = {}, selectedStage = "recognition", busy = false, examples = {};
+const stageTitles = {recognition: "Syntax recognition", tokens: "Lexer tokens", ast: "Abstract syntax tree",
+  symbols: "Symbols and types", ir: "Typed intermediate representation", bytecode: "VM bytecode"};
+const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
+try {
+  const savedTheme = localStorage.getItem("polyglot-theme");
+  if (savedTheme === "light" || savedTheme === "dark") document.documentElement.dataset.theme = savedTheme;
+} catch { /* System theme still works if local storage is unavailable. */ }
+function isDarkTheme() {
+  return document.documentElement.dataset.theme === "dark" ||
+    (!document.documentElement.dataset.theme && systemTheme.matches);
+}
+function updateThemeButton() {
+  const dark = isDarkTheme();
+  $("theme-toggle").setAttribute("aria-label", `Switch to ${dark ? "light" : "dark"} theme`);
+  $("theme-icon").setAttribute("href", dark ? "#ph-sun" : "#ph-moon");
+}
+$("theme-toggle").addEventListener("click", () => {
+  const theme = isDarkTheme() ? "light" : "dark";
+  document.documentElement.dataset.theme = theme;
+  try { localStorage.setItem("polyglot-theme", theme); } catch { /* Keep the session theme. */ }
+  updateThemeButton();
+});
+systemTheme.addEventListener("change", updateThemeButton);
+updateThemeButton();
+function setStatus(text, state = "ready") {
+  $("status").textContent = text;
+  $("status").dataset.state = state;
+}
 
 function updateEditor() {
   $("lines").textContent = Array.from({length: editor.value.split("\n").length}, (_, i) => i + 1).join("\n");
@@ -9,12 +37,19 @@ function updateEditor() {
   $("position").textContent = `Line ${prefix.length}, column ${prefix.at(-1).length + 1}`;
 }
 function showStage() {
-  $("stage-data").textContent = stages[selectedStage] === undefined ? "This stage is not available. Compile valid source to inspect it." : JSON.stringify(stages[selectedStage], null, 2);
+  const available = stages[selectedStage] !== undefined;
+  const compiled = Object.keys(stages).length > 0;
+  $("stage-data").textContent = available ? JSON.stringify(stages[selectedStage], null, 2) : compiled ?
+    "This stage is not available. Compile valid source to inspect it." : "Check or run a program to inspect its stages.";
+  $("stage-data").dataset.empty = String(!available);
+  $("stage-data").setAttribute("aria-labelledby", `tab-${selectedStage}`);
+  $("stage-title").textContent = stageTitles[selectedStage];
+  $("stage-state").textContent = available ? "Available" : compiled ? "Not available" : "Awaiting compilation";
 }
 function dirty() {
   stages = {};
   showStage();
-  $("status").textContent = "Source changed";
+  setStatus("Source changed", "changed");
   updateEditor();
 }
 function diagnosticText(d) {
@@ -24,8 +59,9 @@ function diagnosticText(d) {
 async function action(operation, extra = {}) {
   if (busy) return;
   busy = true;
-  document.querySelectorAll("button").forEach(b => b.disabled = true);
-  $("status").textContent = operation === "run" || operation === "exec" ? "Running…" : "Compiling…";
+  document.querySelectorAll("[data-operation], #upload-artifact").forEach(b => b.disabled = true);
+  $("workbench").setAttribute("aria-busy", "true");
+  setStatus(operation === "run" || operation === "exec" ? "Running…" : "Compiling…", "busy");
   $("diagnostics").replaceChildren();
   const sourceAtStart = editor.value;
   try {
@@ -34,8 +70,10 @@ async function action(operation, extra = {}) {
     if (!response.ok) throw new Error(result.error || "Request failed");
     stages = sourceAtStart === editor.value ? result.stages || {} : {};
     showStage();
-    $("status").textContent = sourceAtStart !== editor.value ? "Source changed during compilation" : result.ok ? "Successful" : "Stopped with an error";
+    setStatus(sourceAtStart !== editor.value ? "Source changed during compilation" : result.ok ? "Successful" : "Stopped with an error",
+      sourceAtStart !== editor.value ? "changed" : result.ok ? "success" : "error");
     $("output").textContent = result.output || (result.ok ? operation === "run" || operation === "exec" ? "Program finished with no output." : "Compilation successful." : "Execution stopped.");
+    $("output").dataset.empty = String(!result.output);
     $("execution-info").textContent = result.steps ? `${result.steps.toLocaleString()} VM instructions` : "";
     for (const d of result.diagnostics || []) {
       const item = document.createElement("button");
@@ -52,11 +90,13 @@ async function action(operation, extra = {}) {
     }
     if (operation === "build" && result.ok) download(result.artifact_text, $("filename").value.replace(/\.[^.]*$/, "") + ".pbc", "application/json");
   } catch (error) {
-    $("status").textContent = "Connection error";
+    setStatus("Connection error", "error");
     $("output").textContent = error.message;
+    $("output").dataset.empty = "false";
   } finally {
     busy = false;
-    document.querySelectorAll("button").forEach(b => b.disabled = false);
+    $("workbench").setAttribute("aria-busy", "false");
+    document.querySelectorAll("[data-operation], #upload-artifact").forEach(b => b.disabled = false);
   }
 }
 function download(text, name, type = "text/plain") {
@@ -104,22 +144,37 @@ editor.addEventListener("keydown", event => {
   if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); action("run"); }
 });
 for (const name of ["check", "run", "build", "inspect"]) $(name).addEventListener("click", () => action(name));
-document.querySelectorAll("[data-stage]").forEach(button => button.addEventListener("click", () => {
+const stageTabs = [...document.querySelectorAll("[data-stage]")];
+function selectStage(button) {
   selectedStage = button.dataset.stage;
-  document.querySelectorAll("[data-stage]").forEach(b => b.setAttribute("aria-selected", String(b === button)));
+  stageTabs.forEach(b => {
+    b.setAttribute("aria-selected", String(b === button));
+    b.tabIndex = b === button ? 0 : -1;
+  });
   showStage();
-}));
+}
+stageTabs.forEach((button, index) => {
+  button.addEventListener("click", () => selectStage(button));
+  button.addEventListener("keydown", event => {
+    let target;
+    if (event.key === "ArrowRight") target = stageTabs[(index + 1) % stageTabs.length];
+    if (event.key === "ArrowLeft") target = stageTabs[(index + stageTabs.length - 1) % stageTabs.length];
+    if (event.key === "Home") target = stageTabs[0];
+    if (event.key === "End") target = stageTabs.at(-1);
+    if (target) { event.preventDefault(); selectStage(target); target.focus(); }
+  });
+});
 $("upload-source").addEventListener("click", () => $("source-file").click());
 $("upload-artifact").addEventListener("click", () => $("artifact-file").click());
 $("download-source").addEventListener("click", () => download(editor.value, $("filename").value || "program.poly"));
 $("source-file").addEventListener("change", async event => {
   const file = event.target.files[0]; if (!file) return;
-  if (file.size > 131072) { $("status").textContent = "Source exceeds 128 KiB"; return; }
+  if (file.size > 131072) { setStatus("Source exceeds 128 KiB", "error"); return; }
   editor.value = await file.text(); $("filename").value = file.name; dirty(); event.target.value = "";
 });
 $("artifact-file").addEventListener("change", async event => {
   const file = event.target.files[0]; if (!file) return;
-  if (file.size > 5000000) { $("status").textContent = "Artifact exceeds 5 MB"; return; }
+  if (file.size > 5000000) { setStatus("Artifact exceeds 5 MB", "error"); return; }
   await action("exec", {artifact:await file.text(), filename:file.name}); event.target.value = "";
 });
 $("examples").addEventListener("change", () => {
@@ -129,4 +184,4 @@ fetch("/api/examples").then(r => r.json()).then(data => {
   examples = data;
   for (const name of Object.keys(data)) { const option = document.createElement("option"); option.value = name; option.textContent = name; $("examples").append(option); }
   const first = Object.keys(data)[0]; editor.value = data[first]; $("filename").value = first; updateEditor();
-}).catch(error => { $("status").textContent = error.message; });
+}).catch(error => { setStatus(error.message, "error"); });
