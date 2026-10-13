@@ -147,3 +147,9 @@ Unannotated functions, advanced error recovery, optimization, classes, other col
 - [Ember highlighting and editor maintenance](docs/highlighting.md)
 
 Compiler modules live in `src/polyglot/`; the offline interface lives in `src/polyglot/web/static/`. `examples/` contains valid and intentionally invalid programs. Presentation deliverables remain in `presentation/output/`.
+
+## License
+
+Polyglot's original code is licensed under the [MIT License](LICENSE), copyright 2026 Harshit and Polyglot contributors.
+
+Third-party assets and supplied reference material retain their original copyright and applicable terms. See [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES), including the bundled Phosphor icons' MIT notice.

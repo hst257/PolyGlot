@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "polyglot-compiler"
 version = "0.3.0"
 description = "An educational compiler for a restricted mixed-syntax language"
+license = {file = "LICENSE"}
 requires-python = ">=3.11"
 dependencies = []
 
@@ -14,6 +15,9 @@ dev = ["pytest>=8"]
 
 [project.scripts]
 polyglot = "polyglot.cli:main"
+
+[tool.setuptools]
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
