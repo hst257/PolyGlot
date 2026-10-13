@@ -56,12 +56,74 @@ def function(p):
     return p.record(node, "shared-c", "typed-function", ["typed signature and braces"])
 
 
+def javascript_declaration(p):
+    start = p.take()
+    name = p.expect("NAME")
+    if not p.match("="):
+        p.error(p.peek(), "P030", "let and const declarations require an initializer.")
+    value = expression(p)
+    node = Node("Declare", p.join(start.span, value.span),
+                {"name": name.text, "type": None, "value": value, "mutable": start.text == "let"})
+    return p.record(node, "JavaScript", "js-declaration", [f"explicit {start.text} declaration"])
+
+
+def javascript_function(p):
+    start = p.expect("function")
+    name = p.expect("NAME")
+    p.expect("(")
+    params = []
+    if not p.at(")"):
+        while True:
+            parameter = p.expect("NAME")
+            if not p.match(":"):
+                p.error(p.peek(), "P020", "Function parameters require Polyglot type annotations.")
+            params.append({"name": parameter.text, "type": type_spec(p), "span": parameter.span})
+            if not p.match(","):
+                break
+    p.expect(")")
+    if not p.match(":"):
+        p.error(p.peek(), "P020", "JavaScript-style functions require a return annotation.", "Use function name(...): int { ... } or another supported return type.")
+    return_type = type_spec(p)
+    if not p.at("{"):
+        p.error(p.peek(), "P001", "JavaScript-style functions require a brace body.")
+    body = p.suite(start)
+    node = Node("Function", p.join(start.span, body.span),
+                {"name": name.text, "params": params, "return_type": return_type, "body": body})
+    return p.record(node, "JavaScript", "js-annotated-function", ["function keyword, explicit annotations and braces"])
+
+
+def javascript_output(p):
+    start = p.expect("console")
+    p.expect(".")
+    p.expect("log")
+    args = p.arguments()
+    node = Node("Output", p.join(start.span, p.previous().span),
+                {"args": args, "separator": " " if len(args) > 1 else "", "ending": "\n"})
+    p.end(True)
+    return p.record(node, "JavaScript", "console-log", ["recognized console.log builtin"])
+
+
+def formatted_output(p):
+    start = p.expect("printf")
+    args = p.arguments()
+    if not args:
+        p.error(start, "P030", "printf requires a literal format string.")
+    node = Node("Printf", p.join(start.span, p.previous().span), {"format": args[0], "args": args[1:]})
+    p.end(True)
+    return p.record(node, "C", "printf", ["recognized restricted printf builtin"])
+
+
 def for_loop(p):
     start = p.expect("for")
     p.expect("(")
     initial = None
     if not p.at(";"):
-        initial = declaration(p) if p.peek().text in TYPES else p.assignment()
+        if p.peek().text in TYPES:
+            initial = declaration(p)
+        elif p.peek().text in ("let", "const"):
+            initial = javascript_declaration(p)
+        else:
+            initial = p.assignment()
     p.expect(";")
     condition = expression(p) if not p.at(";") else Node("Literal", p.peek().span, {"value": True})
     p.expect(";")
@@ -71,6 +133,8 @@ def for_loop(p):
         p.error(p.peek(), "P001", "Three-part loops require a brace body.")
     body = p.suite(start)
     node = Node("For", p.join(start.span, body.span), {"initial": initial, "condition": condition, "update": update, "body": body})
+    if initial is not None and initial.meta.get("syntax", {}).get("family") == "JavaScript":
+        return p.record(node, "JavaScript", "js-three-part-for", ["let/const initializer and brace loop"])
     return p.record(node, "shared-c", "three-part-for", ["semicolon-separated header and braces"])
 
 

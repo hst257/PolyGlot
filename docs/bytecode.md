@@ -11,6 +11,7 @@ Every instruction preserves source location/excerpt. Value-producing instruction
 | `MOVE` | Copy a temporary; merge short-circuit/loop test results |
 | `WIDEN` | Convert integer to float |
 | `UNARY`, `BINARY` | Explicit normalized operator and operands |
+| `FORMAT` | Convert one typed printf argument to a string using an explicit specifier |
 | `LABEL`, `JUMP`, `BRANCH` | Named control-flow targets and Boolean decisions |
 | `CALL` | Function ID, evaluated arguments and optional result |
 | `RETURN_VALUE`, `RETURN_VOID` | Return from the current frame |
@@ -31,6 +32,7 @@ Short-circuit expressions use branches rather than eagerly executing both operan
 | `STORE_LOCAL`, `STORE_GLOBAL` | slot | pop value |
 | `UNARY` | `+`, `-`, `not`, `float` | pop one, push one |
 | `BINARY` | normalized operator | pop right then left, push result |
+| `FORMAT` | `d`, `f`, or `s` | pop typed argument, push formatted string (version 3+) |
 | `JUMP` | absolute instruction index | none |
 | `JUMP_IF_FALSE` | absolute index | pop Boolean |
 | `CALL` | function ID, argument count | pop arguments; result pushed only for value returns |
@@ -52,7 +54,9 @@ IR temporaries map to local slots after declared locals. Calls place parameters 
 
 ## Artifact format
 
-New `.pbc` artifacts are UTF-8 JSON with `format: "polyglot-bytecode"`, `version: 2`, `entry`, `constants`, `global_count`, and `functions`. Constants remain primitive values; arrays are allocated by instructions, never embedded mutable constants. Signatures accept primitive or one-dimensional array types. Functions contain signatures, local storage size and instruction arrays. Instructions contain `op`, `args` and original source metadata/excerpts. The loader continues to accept scalar version 1 artifacts; version 1 explicitly rejects array types and instructions.
+New `.pbc` artifacts are UTF-8 JSON with `format: "polyglot-bytecode"`, `version: 3`, `entry`, `constants`, `global_count`, and `functions`. Constants remain primitive values; arrays are allocated by instructions, never embedded mutable constants. Signatures accept primitive or one-dimensional array types. Functions contain signatures, local storage size and instruction arrays. Instructions contain `op`, `args` and original source metadata/excerpts. The loader continues to accept scalar version 1 and array version 2 artifacts. Version 1 rejects array types/instructions; versions 1/2 reject FORMAT.
+
+FORMAT checks its runtime operand type: `%d` integer, `%f` float, `%s` string. Integer widening for `%f` is explicit in IR/bytecode. Literal format segments and formatted temporaries feed the existing OUTPUT operation. Const mutability is enforced during source semantic analysis; bytecode is not a source-level const verifier.
 
 The loader rejects unknown versions/opcodes, duplicate JSON keys, malformed constants, invalid operands/slots/functions/jumps, bad source mappings, stack underflow, inconsistent branch-stack heights, incorrect return forms and reachable fall-through. Runtime checks additionally enforce operand/call/return types and initialized storage. No pickle or code deserialization is used.
 

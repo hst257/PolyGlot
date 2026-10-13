@@ -153,6 +153,21 @@ class Lowerer:
             self.emit("OUTPUT", node, args=args, separator=d["separator"], ending=d["ending"])
         elif node.kind == "OutputSequence":
             self.block(node)
+        elif node.kind == "Printf":
+            values = [self.widen(self.expr(arg), arg.meta["type"], expected, arg)
+                      for arg, expected in zip(d["args"], node.meta["format_types"])]
+            parts = []
+            for segment in node.meta["segments"]:
+                if segment["kind"] == "literal":
+                    parts.append(self.constant(segment["text"], node, "string"))
+                else:
+                    dest = self.temp()
+                    self.emit("FORMAT", node, dest=dest, value=values[segment["index"]],
+                              specifier=segment["specifier"], type="string")
+                    parts.append(dest)
+            # Evaluate/format every argument before emitting output. Each OUTPUT stays bounded.
+            for start in range(0, max(1, len(parts)), 1000):
+                self.emit("OUTPUT", node, args=parts[start:start + 1000], separator="", ending="")
         elif node.kind == "Expression":
             self.expr(d["value"])
         elif node.kind == "Return":

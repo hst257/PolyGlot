@@ -73,7 +73,7 @@ def test_worker_wall_timeout_keeps_server_usable(server):
 def test_array_build_execute_and_bounds_over_real_http(server):
     built = json.loads(request(server, "/api/build", {"source": EXAMPLES["arrays_mixed.poly"]}))
     assert built["ok"], built.get("diagnostics")
-    assert built["artifact"]["version"] == 2
+    assert built["artifact"]["version"] == 3
     result = json.loads(request(server, "/api/exec", {"artifact": built["artifact_text"]}))
     assert result["output"] == '15\n7\n[1, 7, 3, 4] 4\n'
     result = json.loads(request(server, "/api/run", {"source": 'values = [1]\nprint(values[1])\n'}))
@@ -88,3 +88,14 @@ def test_cross_syntax_array_iteration_through_http(server):
     assert result["output"] == '1\n2\n3\n4\n5\n'
     ast_nodes = built["stages"]["ast"]["data"]["body"]
     assert any(node["kind"] == 'ForEach' for node in ast_nodes)
+
+
+def test_p1_mixed_syntax_and_const_failure_through_http(server):
+    built = json.loads(request(server, "/api/build", {"source": EXAMPLES["p1_mixed.poly"]}))
+    assert built["ok"], built.get("diagnostics")
+    assert built["artifact"]["version"] == 3
+    result = json.loads(request(server, "/api/exec", {"artifact": built["artifact_text"]}))
+    assert result["output"] == 'total 8\nformatted: 8, 2.500000, ready\nBASIC output\n8\ndone\n'
+    invalid = json.loads(request(server, "/api/run", {"source": 'const x = 1;\nLET x = 2\n'}))
+    assert not invalid["ok"] and invalid["artifact"] is None
+    assert invalid["diagnostics"][0]["code"] == 'S028'

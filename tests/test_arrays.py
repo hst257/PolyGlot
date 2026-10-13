@@ -107,7 +107,7 @@ def test_invalid_store_checks_bounds_before_rhs():
 
 def test_array_artifact_roundtrip_and_stages():
     result = compile_ok('values = [1, 2]\nvalues[0] += 2\nprint(values)\n')
-    assert result["artifact"]["version"] == 2
+    assert result["artifact"]["version"] == 3
     assert run(loads(dumps(result["artifact"])))["output"] == '[3, 2]\n'
     assert result["stages"]["symbols"][0]["type"] == 'int[]'
     ops = {i["op"] for i in result["stages"]["ir"][0]["instructions"]}

@@ -4,13 +4,15 @@ Verified on October 13, 2026, with Python 3.11.8 and pytest 8.2.0.
 
 ## Automated checks
 
-`python -m pytest -q`: **197 passed, 0 failed**. The complete suite includes nine real loopback HTTP tests with spawned compiler workers. Restricted sandbox client networking required running those checks outside the socket restriction.
+`python -m pytest -q`: **259 passed, 0 failed**. The complete suite includes ten real loopback HTTP tests with spawned compiler workers. Restricted sandbox client networking required running those checks outside the socket restriction.
 
 Coverage includes lexer/source positions, comments/strings, structural parsing, grammar attribution, AST normalization, expression/type/scope behavior, definite assignment, functions/recursion, loop variants/control, short-circuiting, artifact validation/round trips, CLI streams/exit codes, web operations and execution limits. Seeded malformed-input checks also exercise parser termination.
 
 Array coverage includes literals, all primitive element types, typed C/Java-style declarations, default allocation, empty/contextual literals, indexed assignments, argument/return types, reference sharing, fresh allocations, evaluation order, bounds, length/resource limits, invalid array bytecode and version 1 compatibility.
 
 Array iteration coverage includes Java/C++ declarations with Python-style for-in loops, all primitive element types, empty arrays, iterator evaluation once, loop-variable scope, element copying, captured references, mutations, nested/mixed blocks, continue/break, typed functions and non-array diagnostics.
+
+P1 coverage includes inferred `let`/`const` declarations, constant reassignment across syntaxes, annotated JavaScript-style functions, recursion/forward calls, `console.log`, restricted `printf`, uppercase BASIC `LET`/`PRINT`, recognition of all six syntax families, evaluation order, formatting type/arity checks, large output chunking, version 3 artifact validation and version 2 compatibility.
 
 `node --check src/polyglot/web/static/app.js` and Python `compileall` completed without errors.
 
@@ -22,6 +24,7 @@ Array iteration coverage includes Java/C++ declarations with Python-style for-in
 - A fresh virtual environment created with `--without-pip` ran both mandatory programs through the source-tree launcher. No compiler runtime packages were installed.
 - `arrays_mixed.poly`: `15`, `7`, and `[1, 7, 3, 4] 4`. CLI build/exec and real HTTP build/exec produced the same result. The existing saved version 1 mixed-demo artifact also executed successfully with the updated VM.
 - `array_iteration.poly`: `1` through `5` on separate lines. CLI run/build/exec, HTTP build/exec, and the live IDE all produced the expected result using a Java-style array declaration with a Python-style for-in loop.
+- `p1_mixed.poly`: `total 8`, `formatted: 8, 2.500000, ready`, `BASIC output`, `8`, and `done` on separate lines. CLI run/build/exec, real HTTP build/exec and the live IDE produced the same output. The saved version 1 mixed-demo and version 2 array artifacts still execute under the version 3 compiler/VM.
 
 ## Browser checks
 
@@ -41,8 +44,10 @@ For the array update, the live IDE ran `arrays_mixed.poly`, displayed `int[]` sy
 
 For the iteration fix, the IDE ran `array_iteration.poly` and exposed the actual `ForEach` AST and its array/branch IR. That example was left open; see [array-iteration.jpg](array-iteration.jpg).
 
+For P1, a separate IDE tab ran `p1_mixed.poly` successfully. Recognition showed JavaScript, Python, BASIC, C, Java and C++; Symbols showed the inferred array type and immutable `bonus` binding; IR contained real `FORMAT` instructions. A BASIC assignment to a JavaScript-style constant reported `S028` at line 2. The working mixed example was restored and left open; see [p1-demo.jpg](p1-demo.jpg).
+
 ## Remaining work and limits
 
-P1 syntax, benchmarks, optimization and advanced recovery remain disabled. Optional editable package installation was not verified: the system Python lacked wheel tooling. The dependency-free source-tree launcher was verified instead.
+Optional BASIC labels/GOTO, benchmarks, optimization and advanced recovery remain deferred. The implemented P1 spellings are documented subsets with shared Polyglot semantics, including mandatory annotations for JavaScript-style functions and literal `printf` formats limited to `%d`, `%f`, `%s` and `%%`. Optional editable package installation was not verified: the system Python lacked wheel tooling. The dependency-free source-tree launcher was verified instead.
 
 Rehearsal and clean setup on the actual October 19 demonstration laptop remain a release task. The implementation uses only local browser assets; no claim is made that operating-system network access was physically disabled during these checks.

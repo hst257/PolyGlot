@@ -1,18 +1,21 @@
-(* P0 grammar. NAME excludes reserved construct/builtin/type names in binding positions. *)
-program = { function | statement }, EOF ;
+(* Supported P0 and P1 grammar. NAME excludes active reserved names in binding positions. *)
+program = { function | js_function | statement }, EOF ;
 function = "def", NAME, "(", [ py_parameters ], ")", "->", type, indent_suite
          | type, NAME, "(", [ c_parameters ], ")", brace_suite ;
 py_parameters = NAME, ":", value_type, { ",", NAME, ":", value_type } ;
 c_parameters = value_type, NAME, { ",", value_type, NAME } ;
+js_function = "function", NAME, "(", [ py_parameters ], ")", ":", type, brace_suite ;
 type = value_type | "void" ;
 value_type = primitive_type, [ "[", "]" ] ;
 primitive_type = "int" | "float" | "double" | "bool" | "boolean" | "str" | "string" | "String" ;
-statement = declaration, ";" | assignment, terminator | call, terminator
+statement = declaration, ";" | js_declaration, ";" | assignment, terminator | call, terminator
           | output | conditional | while | range_loop | array_loop | c_for
+          | "LET", NAME, [ "[", expression, "]" ], "=", expression, terminator
           | "return", [ expression ], terminator
           | ("break" | "continue"), terminator ;
 declaration = value_type, NAME, [ "[", [ expression ], "]" ],
               [ "=", (expression | brace_array) ] ;
+js_declaration = ("let" | "const"), NAME, "=", expression ;
 assignment = NAME, [ "[", expression, "]" ], ("=" | "+=" | "-="), expression ;
 terminator = ";" | NEWLINE ;
 indent_suite = ":", NEWLINE, INDENT, statement, { statement }, DEDENT ;
@@ -25,11 +28,14 @@ while = "while", condition_suite ;
 range_loop = "for", NAME, "in", "range", "(", expression,
              [ ",", expression, [ ",", expression ] ], ")", indent_suite ;
 array_loop = "for", NAME, "in", expression, indent_suite ;
-c_for = "for", "(", [ declaration | assignment ], ";", [ expression ], ";",
+c_for = "for", "(", [ declaration | js_declaration | assignment ], ";", [ expression ], ";",
         [ assignment | NAME, ("++" | "--") ], ")", brace_suite ;
 output = "print", "(", [ arguments ], ")", terminator
        | "System", ".", "out", ".", "println", "(", expression, ")", ";"
-       | [ "std", "::" ], "cout", "<<", insertion, { "<<", insertion }, ";" ;
+       | [ "std", "::" ], "cout", "<<", insertion, { "<<", insertion }, ";"
+       | "console", ".", "log", "(", [ arguments ], ")", ";"
+       | "printf", "(", STRING, [ ",", arguments ], ")", ";"
+       | "PRINT", [ expression ], terminator ;
 insertion = expression | [ "std", "::" ], "endl" ;
 arguments = expression, { ",", expression } ;
 expression = disjunction ;
@@ -53,5 +59,7 @@ call = NAME, "(", [ arguments ], ")" ;
    one [] suffix, either before or after the name. len(array) is a recognized builtin.
    A range(...) iterable produces a Range node; other for-in expressions produce a
    ForEach node and must have array type. Parentheses may wrap the iterable expression.
+   printf format contents/arity/types are validated semantically. JavaScript-inspired
+   functions require Polyglot annotations. LET uses shared assignment resolution.
    The Pratt parser accepts unary Boolean negation where an operand begins; it retains the
    common precedence described in language.md. No general member access is supported. *)

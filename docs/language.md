@@ -1,6 +1,6 @@
 # Polyglot language specification
 
-Polyglot defines one statically checked language with borrowed syntax. It does not preserve all semantics of Python, C++ or Java.
+Polyglot defines one statically checked language with borrowed syntax. It does not preserve all semantics of Python, C, C++, Java, JavaScript or BASIC.
 
 ## P0 support matrix
 
@@ -16,13 +16,24 @@ Polyglot defines one statically checked language with borrowed syntax. It does n
 | Loop control | `break`, `continue` | Same spellings |
 | Returns | `return` or `return expression` | Same spellings |
 
+## P1 support matrix
+
+| Syntax | Supported spelling | Restrictions |
+|---|---|---|
+| JavaScript declarations | `let x = value;`, `const x = value;` | Initializers required; fixed inferred types |
+| JavaScript output | `console.log(...)` | Recognized builtin; semicolon required |
+| JavaScript functions | `function name(a: int): int { ... }` | Polyglot annotations required; top-level only |
+| C formatted output | `printf("%d %f %s", n, ratio, name);` | Literal format; only `%d`, `%f`, `%s`, `%%` |
+| BASIC assignment | `LET X = expression` | Uppercase prefix, shared case-sensitive bindings |
+| BASIC output | `PRINT expression`, `PRINT` | One expression or blank line |
+
 ## Lexical and structural rules
 
-Identifiers are ASCII, case-sensitive, and match `[A-Za-z_][A-Za-z0-9_]*`. Built-in names, type names and P0 construct keywords are reserved. Boolean literals accept `True`, `False`, `true`, `false`.
+Identifiers are ASCII, case-sensitive, and match `[A-Za-z_][A-Za-z0-9_]*`. Built-in names, type names and active construct keywords are reserved. Boolean literals accept `True`, `False`, `true`, `false`.
 
 Strings use single/double quotes and escapes `\\`, `\'`, `\"`, `\n`, `\r`, `\t`. Comments: `#`, `//`, and `/* ... */`. Triple quotes, raw/f-strings and backslash continuation are unsupported. `//` is not division. CRLF input is normalized to LF for inspection spans.
 
-Newlines terminate shared simple statements. Semicolons are also accepted; typed declarations and C++/Java built-in output require them. EOF completes a final logical line. Parentheses suppress newlines, permitting multiline expressions, arguments and headers. Block-comment newlines follow the same logical-newline rules.
+Newlines terminate shared simple statements and BASIC forms. Semicolons are also accepted; typed declarations, JavaScript declarations, and C/C++/Java/JavaScript built-in output require them. EOF completes a final logical line. Parentheses suppress newlines, permitting multiline expressions, arguments and headers. Block-comment newlines follow the same logical-newline rules.
 
 Python headers require colon, newline and a nonempty indented suite. Suite statements must align. Blank/comment-only lines do not establish indentation. Tabs in leading whitespace are rejected. Brace blocks may be empty and accept cosmetic indentation. A Python suite inside braces activates indentation until its dedent or the enclosing closing brace. Braces can also nest inside Python suites. `else` attachment follows structural context; Python-style branches must align with their `if`.
 
@@ -76,6 +87,16 @@ The per-array limit is 1000 elements; a VM execution may allocate up to 100,000 
 
 Integers print in decimal, floats in Python's finite float representation, Booleans as `true`/`false`, strings without quotes. All spellings use these same rules. These are recognized built-ins, not general namespaces, methods or overloaded operators.
 
+## Additional declarations, functions and output
+
+`let` and `const` require an initializer and infer the same fixed types as Python-style assignment. `const` disallows rebinding through every supported spelling, including compound assignments and BASIC LET. It does not freeze array contents. An inner declaration may shadow an outer const binding. JavaScript-style for initializers accept `let`/`const`; updating a const loop counter fails statically.
+
+JavaScript-style functions require `name: type` parameters and a `: return_type` annotation before their brace body. They normalize to the same Function AST and share forward calls, recursion, arrays, returns and type checks. This annotated spelling is a Polyglot restriction, not standard JavaScript. `console.log` matches common print semantics, with spaces between arguments and a final newline; it is not general member access.
+
+`printf` is a statement-only builtin with a literal format. `%d` requires integer, `%f` requires float (with integer widening), `%s` requires string, and `%%` emits percent without consuming an argument. `%f` prints six fractional digits. No automatic newline is added. Arguments evaluate once, left to right, before formatting/output. Widths, precision, flags, dynamic formats, `%c` and other specifiers fail at compile time. This does not expose C libraries or C's source-language evaluation/type semantics.
+
+BASIC forms use uppercase LET/PRINT with case-sensitive identifiers. LET introduces or updates the nearest shared binding using `=`; other compound assignments omit the LET prefix. PRINT emits one expression plus newline, or a blank line. BASIC may appear inside any supported block and use the same expression/array grammar. No line numbers, labels, GOTO, IF/THEN or END are enabled.
+
 ## Deferred features
 
-C `printf`, JavaScript and BASIC extensions, unannotated functions, multi-error recovery and optimization are not enabled. Multidimensional arrays, other collections, classes, pointers, imports, exceptions and external libraries are unsupported. Block nesting is limited to 100; calls/output accept at most 1000 arguments. Python's integer text-conversion limits can constrain unusually large literals/output; arithmetic still does not use fixed-width integers.
+BASIC labels/jumps, unannotated functions, multi-error recovery and optimization are not enabled. Multidimensional arrays, other collections, classes, pointers, imports, exceptions and external libraries are unsupported. Block nesting is limited to 100; calls/output accept at most 1000 arguments. Python's integer text-conversion limits can constrain unusually large literals/output; arithmetic still does not use fixed-width integers.

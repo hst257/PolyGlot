@@ -4,6 +4,7 @@ import json
 import math
 from collections import deque
 from .types import VALUE_TYPES, is_value_type, MAX_ARRAY_LENGTH
+from .formats import FORMAT_TYPES
 
 UNARY = {"+", "-", "not", "float"}
 BINARY = {"+", "-", "*", "/", "%", "==", "!=", "<", "<=", ">", ">=", "and", "or"}
@@ -23,7 +24,7 @@ def validate(artifact: dict) -> dict:
 
     require(type(artifact) is dict, "Artifact must be an object.")
     require(artifact.get("format") == "polyglot-bytecode" and type(artifact.get("version")) is int
-            and artifact["version"] in (1, 2), "Unsupported artifact format/version.")
+            and artifact["version"] in (1, 2, 3), "Unsupported artifact format/version.")
     version = artifact["version"]
     constants, functions = artifact.get("constants"), artifact.get("functions")
     require(type(constants) is list and len(constants) <= 100000 and type(functions) is list
@@ -43,7 +44,7 @@ def validate(artifact: dict) -> dict:
                 and type(fn.get("name")) is str, "Invalid function identity.")
         locals_count = fn.get("local_count")
         require(type(locals_count) is int and 0 <= locals_count <= 100000, "Invalid local storage count.")
-        valid_type = is_value_type if version == 2 else lambda t: t in VALUE_TYPES
+        valid_type = is_value_type if version >= 2 else lambda t: t in VALUE_TYPES
         require(type(fn.get("params")) is list and all(valid_type(t) for t in fn["params"])
                 and len(fn["params"]) <= locals_count, "Invalid function parameters.")
         require(fn.get("return_type") == "void" or valid_type(fn.get("return_type")), "Invalid return type.")
@@ -57,7 +58,7 @@ def validate(artifact: dict) -> dict:
             op, args, loc = instruction.get("op"), instruction["args"], instruction.get("source")
             require(type(op) is str, "Invalid opcode.")
             if op.startswith("ARRAY_"):
-                require(version == 2, "Array instructions require artifact version 2.")
+                require(version >= 2, "Array instructions require artifact version 2 or newer.")
             require(type(loc) is dict and type(loc.get("filename")) is str and type(loc.get("line")) is int
                     and type(loc.get("column")) is int and loc["line"] > 0 and loc["column"] > 0
                     and type(loc.get("excerpt", "")) is str, "Invalid source mapping.")
@@ -67,6 +68,9 @@ def validate(artifact: dict) -> dict:
             elif op in ("UNARY", "BINARY"):
                 require(len(args) == 1 and type(args[0]) is str
                         and args[0] in (UNARY if op == "UNARY" else BINARY), "Invalid operation.")
+            elif op == "FORMAT":
+                require(version >= 3 and len(args) == 1 and type(args[0]) is str and args[0] in FORMAT_TYPES,
+                        "Invalid formatting instruction or artifact version.")
             elif op == "OUTPUT":
                 require(len(args) == 3 and type(args[0]) is int and 0 <= args[0] <= 1000
                         and type(args[1]) is str and type(args[2]) is str, "Invalid output operands.")
@@ -104,7 +108,7 @@ def validate(artifact: dict) -> dict:
                 produce = 1
             elif op in ("STORE_LOCAL", "STORE_GLOBAL", "POP", "JUMP_IF_FALSE", "ASSERT", "RETURN_VALUE"):
                 consume = 1
-            elif op == "UNARY":
+            elif op in ("UNARY", "FORMAT"):
                 consume = produce = 1
             elif op == "BINARY":
                 consume, produce = 2, 1

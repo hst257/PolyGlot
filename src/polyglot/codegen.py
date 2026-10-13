@@ -47,6 +47,10 @@ def generate(functions: list[IRFunction], symbols: list[dict]) -> dict:
                 load(inst["right"], loc)
                 emit("BINARY", [inst["operator"]], loc)
                 store(inst["dest"], loc)
+            elif op == "FORMAT":
+                load(inst["value"], loc)
+                emit("FORMAT", [inst["specifier"]], loc)
+                store(inst["dest"], loc)
             elif op == "ARRAY_BUILD":
                 for value in inst["args"]:
                     load(value, loc)
@@ -104,5 +108,5 @@ def generate(functions: list[IRFunction], symbols: list[dict]) -> dict:
             code[position]["args"][0] = labels[target]
         compiled.append({"id": fn.id, "name": fn.name, "params": fn.params, "return_type": fn.return_type,
                          "local_count": fn.local_count + fn.temp_count, "code": code})
-    return {"format": "polyglot-bytecode", "version": 2, "entry": 0, "constants": constants,
+    return {"format": "polyglot-bytecode", "version": 3, "entry": 0, "constants": constants,
             "global_count": sum(s["storage"] == "global" for s in symbols), "functions": compiled}

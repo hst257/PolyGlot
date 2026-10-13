@@ -5,7 +5,7 @@ from ..source import Source, Span
 from ..diagnostics import fail
 from ..layout import Layout
 from .shared import TYPES, expression
-from . import python_family, c_family
+from . import python_family, c_family, basic_family
 
 
 class Parser:
@@ -70,7 +70,11 @@ class Parser:
         return args
 
     def record(self, node: Node, family: str, rule: str, reasons: list[str]):
-        meta = {"family": family, "candidates": ["C++", "Java"] if family == "shared-c" else [],
+        candidates = ["C", "C++", "Java"] if family == "shared-c" else []
+        if family == "shared-c" and (rule in ("if", "while") or
+                rule == "three-part-for" and (node.data["initial"] is None or node.data["initial"].kind in ("Assign", "IndexAssign"))):
+            candidates.append("JavaScript")
+        meta = {"family": family, "candidates": candidates,
                 "grammar_rule": rule, "distinctive": family not in ("shared", "shared-c"), "reasons": reasons}
         node.meta["syntax"] = meta
         self.recognition.append({**meta, "kind": node.kind, "span": node.span})
@@ -184,8 +188,20 @@ class Parser:
 
     def statement(self) -> Node:
         token = self.peek()
-        if token.text in ("class", "import", "from", "using", "namespace", "let", "const", "function", "LET", "PRINT", "GOTO", "printf", "console"):
-            self.error(token, "P004", f"Unsupported construct {token.text!r}.", "Use the documented P0 syntax subset.")
+        if token.text in ("class", "import", "from", "using", "namespace", "GOTO", "LABEL", "IF", "THEN", "END"):
+            self.error(token, "P004", f"Unsupported construct {token.text!r}.", "Use the documented syntax subset.")
+        if token.text in ("let", "const"):
+            node = c_family.javascript_declaration(self)
+            self.end(True)
+            return node
+        if token.text == "function":
+            return c_family.javascript_function(self)
+        if token.text == "console":
+            return c_family.javascript_output(self)
+        if token.text == "printf":
+            return c_family.formatted_output(self)
+        if token.text in ("LET", "PRINT"):
+            return basic_family.statement(self)
         if token.text in TYPES:
             offset = 3 if self.peek(1).text == "[" and self.peek(2).text == "]" else 1
             if self.peek(offset + 1).text == "(":

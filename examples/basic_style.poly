@@ -1,0 +1,4 @@
+LET total = 0
+for num in [1, 2, 3]:
+    LET total = total + num
+PRINT total

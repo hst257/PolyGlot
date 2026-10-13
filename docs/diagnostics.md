@@ -14,6 +14,7 @@ Compilation stops at the first error. Diagnostics include a stable code, message
 | `S010`–`S018` | Calls, conditions, nested functions, range types, loop control and returns |
 | `P025`, `S019`–`S026` | Array types, indexes, inference, lengths and initializer compatibility |
 | `S027` | Unsupported non-array iterable in a Python-style for-in loop |
+| `P030`, `S028`, `S029` | Extension syntax, const reassignment, and invalid printf formats |
 | `C001`, `C002` | Source size and generated-artifact resource/validation limits |
 | `C999` | Unexpected worker/compiler failure; report as a defect |
 | `A001` | Invalid artifact or web execution request |

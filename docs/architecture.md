@@ -30,9 +30,9 @@ The CLI and web worker use this library directly. Web operations are `/api/check
 
 ## Modular grammar dispatch
 
-One Pratt parser handles expressions. Python-family and C-family modules share expression, assignment, call, suite and control-flow handling. Dispatch uses leading tokens and bounded lookahead: `def`, type/name/parenthesis, `for (` versus `for name in`, and exact built-in prefixes.
+One Pratt parser handles expressions. Python-family, C-family and BASIC-family modules share expression, assignment, call, suite and control-flow handling. Dispatch uses leading tokens and bounded lookahead: `def`, `function`, type/name/parenthesis, `for (` versus `for name in`, exact built-in prefixes, and uppercase `LET`/`PRINT`.
 
-Recognition stores family, candidate families, rule, source span, distinctive/shared flag and reasons. `int x = 3;` cannot distinguish C++ from Java and is recorded as shared. Attribution does not select semantic rules. Deterministic dispatch avoids sequentially trying every language grammar. Approximately linear parsing is a design objective, not a benchmark result.
+Recognition stores family, candidate families, rule, source span, distinctive/shared flag and reasons. `int x = 3;` cannot distinguish C, C++ and Java and is recorded as shared. Distinctive prefixes such as `console.log`, `printf`, `LET` and `function` record their syntax evidence. Attribution does not select semantic rules. Deterministic dispatch avoids sequentially trying every language grammar. Approximately linear parsing is a design objective, not a benchmark result.
 
 ## Execution model
 
@@ -48,4 +48,8 @@ The server binds only to loopback, checks Host/Origin, serves an explicit static
 
 Add a distinctive dispatch rule to the appropriate family module, normalize into existing AST nodes where semantics match, extend semantic checks only where necessary, and retain shared IR/VM operations. Never add separate language runtimes.
 
-Planned order: JavaScript `let`/`console.log`, restricted C `printf`, BASIC `LET`/`PRINT`, annotated JavaScript functions, then same-scope BASIC labels/jumps. `const` needs shared binding mutability checks; GOTO needs label validation and control-flow definite-assignment analysis. None are enabled in this release. Every extension needs positive, negative and integration tests plus grammar/support-matrix changes.
+Implemented extensions: JavaScript `let`/`const`/`console.log` and annotated functions; restricted C `printf`; BASIC `LET`/`PRINT`. JavaScript declarations normalize to shared declaration nodes with inferred types and binding mutability. BASIC forms normalize to assignment/output. JavaScript functions normalize to the existing Function AST. Immutable bindings are checked by shared semantic analysis, including writes from other syntaxes.
+
+Literal printf formats are parsed into explicit segments. Typed arguments evaluate once before output; formatting lowers to `FORMAT` instructions and common `OUTPUT`, with no C runtime. Artifact version 3 introduces this instruction and keeps versions 1/2 readable. Const is a source-level binding check, not a new VM storage class.
+
+Same-scope BASIC labels/jumps remain deferred: they need label validation and control-flow definite-assignment analysis. Every future extension needs positive, negative and integration tests plus grammar/support-matrix changes.

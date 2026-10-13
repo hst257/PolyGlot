@@ -1,6 +1,6 @@
 # Polyglot
 
-An offline educational compiler and browser IDE for a **restricted mixed-syntax language** inspired by Python, C++ and Java. It has its own grammar, types, scopes, bytecode and stack VM. It does not compile arbitrary programs from those languages.
+An offline educational compiler and browser IDE for a **restricted mixed-syntax language** with selected Python, C, C++, Java, JavaScript and BASIC-inspired spellings. It has its own grammar, types, scopes, bytecode and stack VM. It does not compile arbitrary programs from those languages.
 
 ## Run locally
 
@@ -68,7 +68,7 @@ The same launcher works on other platforms: `python run_polyglot.py serve`.
 
 ## Implemented scope
 
-The compiler includes primitive values; one-dimensional arrays; inferred/explicit declarations; annotated functions, forward calls and recursion; both conditional/while spellings; `range`; three-part loops; `break`/`continue`; mixed indentation/braces; all three output forms; static checking; typed IR; validated artifacts; and a bounded custom VM.
+The compiler includes primitive values; one-dimensional arrays; inferred/explicit declarations and const bindings; annotated functions, forward calls and recursion; both conditional/while spellings; `range`; three-part loops; `break`/`continue`; mixed indentation/braces; Python, C, C++, Java, JavaScript and BASIC output forms; static checking; typed IR; validated artifacts; and a bounded custom VM.
 
 ## Arrays
 
@@ -88,7 +88,7 @@ Select `arrays_mixed.poly` in the IDE or run:
 python .\run_polyglot.py run .\examples\arrays_mixed.poly
 ```
 
-Expected output: `15`, `7`, and `[1, 7, 3, 4] 4` on separate lines. New bytecode uses format version 2; legacy scalar version 1 artifacts remain executable.
+Expected output: `15`, `7`, and `[1, 7, 3, 4] 4` on separate lines. New bytecode uses format version 3; legacy scalar version 1 and array version 2 artifacts remain executable.
 
 Python-style iteration also works over arrays declared using another syntax:
 
@@ -100,7 +100,28 @@ for num in arr:
 
 Select `array_iteration.poly` to run this example. The iterable expression is evaluated once; each loop iteration reads the next element. The loop variable is local to the loop and changing it does not write back to the array.
 
-Optional C `printf`, JavaScript and BASIC syntax are **disabled**. Unannotated functions, advanced error recovery, optimization, classes, other collection types, imports and general object/member operations are unsupported. The compiler stops at the first error; it never executes invalid source. Initialization and return analysis are deliberately conservative.
+## Additional syntax (P1)
+
+```text
+const bonus = 2;
+let values = [1, 2, 3];
+function first(items: int[]): int {
+    return items[0] + bonus;
+}
+LET result = first(values)
+console.log("result", result);
+printf("value=%d ratio=%f name=%s\n", result, 2.5, "ready");
+PRINT "finished"
+```
+
+- JavaScript-inspired `let` and `const` infer fixed types. `const` prevents rebinding across all syntax families; array elements remain mutable. `console.log` accepts variadic arguments and adds a newline.
+- JavaScript-inspired functions require Polyglot parameter and return annotations, such as `function add(a: int): int { ... }`. Forward calls, recursion and cross-syntax calls use the existing compiler/VM.
+- C-inspired `printf` accepts a literal format with `%d`, `%f`, `%s`, and `%%`. `%f` prints six fractional digits; no newline is added automatically. Width, precision, `%c` and other formats are unsupported.
+- BASIC-inspired uppercase `LET` creates/updates a binding and `PRINT` outputs one expression or a blank line. Identifiers remain case-sensitive. Labels, line numbers, `GOTO`, `IF ... THEN GOTO` and `END` are deferred.
+
+Choose `p1_mixed.poly`, `javascript_style.poly`, `c_printf.poly`, or `basic_style.poly` in the IDE. The mixed example's expected output is `total 8`, `formatted: 8, 2.500000, ready`, `BASIC output`, `8`, and `done` on separate lines.
+
+Unannotated functions, advanced error recovery, optimization, classes, other collection types, imports and general object/member operations are unsupported. The compiler stops at the first error; it never executes invalid source. Initialization and return analysis are deliberately conservative.
 
 ## Documentation
 

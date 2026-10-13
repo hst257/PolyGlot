@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from .artifact import validate
 from .diagnostics import Diagnostic, PolyglotError
 from .types import MAX_ARRAY_LENGTH, MAX_ARRAY_ELEMENTS
+from .formats import FORMAT_TYPES
 
 UNINITIALIZED = object()
 
@@ -150,6 +151,12 @@ def run(artifact: dict, limits: Limits | None = None) -> dict:
                              "==": lambda: a == b, "!=": lambda: a != b, "<": lambda: a < b, "<=": lambda: a <= b,
                              ">": lambda: a > b, ">=": lambda: a >= b, "and": lambda: a and b, "or": lambda: a or b}[operator]()
                 frame.stack.append(checked(value))
+            elif op == "FORMAT":
+                value = frame.stack.pop()
+                if type_name(value) != FORMAT_TYPES[args[0]]:
+                    error("R007", "Formatting value has an incompatible type.")
+                rendered = format(value, ".6f") if args[0] == "f" else str(value)
+                frame.stack.append(checked(rendered))
             elif op == "ARRAY_BUILD":
                 values = [frame.stack.pop() for _ in range(args[1])][::-1]
                 frame.stack.append(allocate(args[0], values))

@@ -1,0 +1,7 @@
+function square(value: int): int {
+    return value * value;
+}
+
+for (let i = 1; i < 4; i++) {
+    console.log(square(i));
+}

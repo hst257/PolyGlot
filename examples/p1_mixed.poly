@@ -1,0 +1,16 @@
+const bonus = 2;
+let values = [1, 2, 3];
+
+function sum_values(items: int[]): int {
+    let total = 0;
+    for num in items:
+        total += num
+    return total + bonus;
+}
+
+LET result = sum_values(values)
+console.log("total", result);
+printf("formatted: %d, %f, %s\n", result, 2.5, "ready");
+PRINT "BASIC output"
+System.out.println(result);
+std::cout << "done" << std::endl;

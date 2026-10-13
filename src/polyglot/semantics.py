@@ -6,6 +6,7 @@ from .ast import Node
 from .source import Source
 from .diagnostics import fail
 from .types import VALUE_TYPES, is_array, is_value_type, MAX_ARRAY_LENGTH
+from .formats import parse_format, FormatError
 
 
 @dataclass
@@ -19,6 +20,7 @@ class Symbol:
     location: dict
     owner: int
     params: list[str] = field(default_factory=list)
+    mutable: bool = True
 
 
 @dataclass
@@ -31,7 +33,8 @@ class Scope:
 
 RESERVED = {"print", "range", "cout", "endl", "std", "System", "def", "if", "elif", "else", "for", "while",
             "return", "break", "continue", "True", "False", "true", "false", "int", "float", "double", "bool",
-            "boolean", "string", "str", "String", "void", "len", "new"}
+            "boolean", "string", "str", "String", "void", "len", "new", "let", "const", "function",
+            "console", "printf", "LET", "PRINT"}
 
 
 class Analyzer:
@@ -55,7 +58,7 @@ class Analyzer:
         self.scope = Scope(self.scope_count, self.scope, self.scope.owner)
         self.scope_count += 1
 
-    def bind(self, node: Node, name: str, type_name: str, function_id=None, params=None) -> Symbol:
+    def bind(self, node: Node, name: str, type_name: str, function_id=None, params=None, mutable=True) -> Symbol:
         if name in RESERVED:
             self.error(node, "S008", f"{name!r} is reserved by the language.")
         if name in self.scope.names:
@@ -63,6 +66,7 @@ class Analyzer:
                        related=[self.scope.names[name].location])
         if function_id is not None:
             storage, slot = "function", function_id
+            mutable = False
         elif not is_value_type(type_name):
             self.error(node, "S002", "Variables and parameters cannot have type void.")
         elif self.scope is self.root:
@@ -72,7 +76,7 @@ class Analyzer:
             storage, slot = "local", self.local_counts[self.scope.owner]
             self.local_counts[self.scope.owner] += 1
         symbol = Symbol(len(self.symbols), name, type_name, storage, slot, self.scope.id,
-                        self.source.location(node.span), self.scope.owner, params or [])
+                        self.source.location(node.span), self.scope.owner, params or [], mutable)
         self.symbols.append(symbol)
         self.scope.names[name] = symbol
         return symbol
@@ -93,7 +97,8 @@ class Analyzer:
 
     @staticmethod
     def attach(node: Node, symbol: Symbol):
-        node.meta.update({"symbol": symbol.id, "storage": symbol.storage, "slot": symbol.slot, "type": symbol.type})
+        node.meta.update({"symbol": symbol.id, "storage": symbol.storage, "slot": symbol.slot, "type": symbol.type,
+                          "mutable": symbol.mutable})
 
     def compatible(self, node: Node, actual: str, expected: str):
         if actual != expected and not (actual == "int" and expected == "float"):
@@ -228,7 +233,7 @@ class Analyzer:
                 if d["size"].kind == "Literal" and d["value"].kind == "ArrayLiteral" and d["size"].data["value"] != len(d["value"].data["values"]):
                     self.error(node, "S026", "Array initializer length does not match the declared length.")
             if node.kind == "Declare":
-                symbol = self.bind(node, d["name"], d["type"])
+                symbol = self.bind(node, d["name"], d["type"] or value_type, mutable=d.get("mutable", True))
             else:
                 symbol = self.find(d["name"])
                 if symbol is None:
@@ -237,6 +242,9 @@ class Analyzer:
                     symbol = self.bind(node, d["name"], value_type)
                 elif symbol.storage == "function":
                     self.error(node, "S004", "Cannot assign to a function.")
+                elif not symbol.mutable:
+                    self.error(node, "S028", f"Cannot reassign const binding {symbol.name!r}.",
+                               "Use let if the binding must be reassigned.", related=[symbol.location])
             if d.get("op") in ("+=", "-="):
                 old = Node("Name", node.span, {"name": d["name"]})
                 binary = Node("Binary", node.span, {"op": d["op"][0], "left": old, "right": d["value"]})
@@ -259,6 +267,20 @@ class Analyzer:
         elif node.kind == "OutputSequence":
             for piece in d["body"]:
                 self.statement(piece)
+        elif node.kind == "Printf":
+            format_node = d["format"]
+            if format_node.kind != "Literal" or type(format_node.data["value"]) is not str:
+                self.error(format_node, "S029", "printf requires a literal format string.")
+            self.expr(format_node)
+            try:
+                segments, types = parse_format(format_node.data["value"])
+            except FormatError as exc:
+                self.error(format_node, "S029", str(exc), "Supported formats: %d, %f, %s and %%.")
+            if len(d["args"]) != len(types):
+                self.error(node, "S011", f"printf format expects {len(types)} arguments, got {len(d['args'])}.")
+            for arg, expected in zip(d["args"], types):
+                self.compatible(arg, self.expr(arg), expected)
+            node.meta.update({"segments": segments, "format_types": types})
         elif node.kind == "Expression":
             self.expr(d["value"])
         elif node.kind == "If":
