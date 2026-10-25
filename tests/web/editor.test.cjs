@@ -293,3 +293,77 @@ test('AST zoom, expanded canvas, outline and raw JSON retain their controls and 
   panel.querySelector('button[aria-label="Expand tree view"]').click(); ui.get('tab-tokens').click();
   assert.equal(ui.document.body.classList.contains('ast-expanded'),false); ui.close();
 });
+
+test('pipeline distinguishes compilation from execution and invalidates a prior run on edits', async () => {
+  const ui = await workspace(); ui.get('check').click(); await turn();
+  assert.equal(ui.get('tab-bytecode').dataset.state, 'ready');
+  assert.equal(ui.get('tab-execution').dataset.state, 'waiting');
+  assert.match(ui.get('tab-execution').textContent, /Not run/);
+  ui.get('tab-execution').click(); assert.match(ui.get('stage-data').textContent, /Compiled, ready to run/);
+  ui.get('run').click(); await turn();
+  assert.equal(ui.get('tab-execution').dataset.state, 'ready');
+  assert.match(ui.get('stage-data').textContent, /280/);
+  assert.equal(ui.get('stage-data').querySelector('.execution-output').textContent, '0\n1\n3\n6\n12\ndone\n');
+  ui.get('stage-format').click(); const result = JSON.parse(ui.get('stage-data').textContent);
+  assert.equal(result.steps, 280); assert.equal(result.operation, 'run');
+  ui.input('editor', 'print(7)\n');
+  assert.equal(ui.get('tab-execution').dataset.state, 'waiting');
+  assert.equal(ui.get('stage-format').disabled, true); assert.doesNotMatch(ui.get('stage-data').textContent, /280/); ui.close();
+});
+
+test('real lexical, parser, semantic and runtime failures mark only the affected phase', async () => {
+  for (const [source, stage, prior, later] of [
+    ['print("unfinished)\n', 'tokens', null, 'ast'],
+    ['if true\n    print(1)\n', 'ast', 'tokens', 'symbols'],
+    ['print(missing)\n', 'symbols', 'ast', 'ir'],
+    ['int value = 1 / 0;\n', 'symbols', 'ast', 'ir'],
+    ['print(1 / 0)\n', 'execution', 'bytecode', null]
+  ]) {
+    const ui = await workspace(); ui.input('editor', source); ui.get('run').click(); await turn();
+    assert.equal(ui.get('tab-'+stage).dataset.state, 'failed', source);
+    if (prior) assert.equal(ui.get('tab-'+prior).dataset.state, 'ready', source);
+    if (later) assert.equal(ui.get('tab-'+later).dataset.state, 'blocked', source);
+    if (stage === 'execution') {
+      ui.get('tab-execution').click(); assert.match(ui.get('stage-data').textContent, /Not reported for a stopped run/);
+      assert.match(ui.get('stage-data').textContent, /R004/);
+    }
+    ui.close();
+  }
+});
+
+test('walkthroughs use real examples, preserve edited work and show their relevant stage', async () => {
+  const ui = await workspace();
+  ui.input('editor', 'print("keep my draft")\n');
+  ui.get('load-demo').click(); assert.equal(ui.get('replace-source-dialog').hidden, false);
+  ui.get('keep-source').click(); await turn();
+  assert.equal(ui.get('editor').value, 'print("keep my draft")\n');
+  ui.get('demo-case').value = 'error_type.poly'; ui.get('load-demo').click();
+  ui.get('replace-source').click(); await turn(); await turn();
+  assert.equal(ui.get('editor').value, examples['error_type.poly']);
+  assert.equal(ui.get('tab-symbols').getAttribute('aria-selected'), 'true');
+  assert.equal(ui.get('tab-symbols').dataset.state, 'failed');
+  assert.equal(ui.get('tab-bytecode').dataset.state, 'blocked');
+  assert.equal(ui.get('phase-guide').open, true);
+  ui.get('stage-data').querySelector('.diagnostic').click();
+  assert.equal(ui.get('editor').value.slice(ui.get('editor').selectionStart, ui.get('editor').selectionEnd), 'count = "three"');
+  ui.get('demo-case').value = 'p1_mixed.poly'; ui.get('load-demo').click(); await turn(); await turn();
+  assert.equal(ui.get('editor').value, examples['p1_mixed.poly']);
+  assert.match(ui.get('stage-data').textContent, /Candidate groups share syntax/);
+  assert.match(ui.get('output').textContent, /^total 8/);
+  ui.get('tab-ir').click(); assert.match(ui.get('stage-data').textContent, /t0 =/);
+  ui.get('tab-bytecode').click(); assert.match(ui.get('stage-data').textContent, /Push .* from constant/); ui.close();
+});
+
+test('uploaded artifacts show execution without claiming unavailable source phases succeeded', async () => {
+  const ui = await workspace();
+  const artifact = compile('build', {source:'print(99)\n', filename:'other.poly'}).artifact_text;
+  Object.defineProperty(ui.get('artifact-file'), 'files', {value:[{size:artifact.length, text:async () => artifact}]});
+  ui.get('artifact-file').dispatchEvent(new ui.window.Event('change', {bubbles:true})); await turn();
+  assert.equal(ui.get('tab-tokens').dataset.state, 'unavailable');
+  assert.equal(ui.get('tab-bytecode').dataset.state, 'ready');
+  assert.equal(ui.get('tab-execution').dataset.state, 'ready');
+  ui.get('tab-execution').click(); assert.match(ui.get('stage-data').textContent, /Uploaded bytecode artifact/);
+  assert.equal(ui.get('stage-data').querySelectorAll('button.source-link').length, 0);
+  ui.get('previous-stage').click(); assert.equal(ui.get('tab-bytecode').getAttribute('aria-selected'),'true');
+  ui.get('next-stage').click(); assert.equal(ui.get('next-stage').disabled,true); ui.close();
+});

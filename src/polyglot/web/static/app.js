@@ -40,10 +40,10 @@ const PolyglotWorkspace = (() => {
       rows: data.map(t => [t.kind, JSON.stringify(t.text), at(t.span)])
     };
     if (stage === "recognition") return {
-      headers: ["Syntax", "Rule", "Position"],
+      headers: ["Syntax", "Rule", "AST node", "Position"],
       locations: data.map(r => r.span),
       rows: data.map(r => [r.candidates?.length ? r.candidates.join(" / ") : r.family,
-        r.grammar_rule, at(r.span)])
+        r.grammar_rule, r.kind || "—", at(r.span)])
     };
     if (stage === "symbols") return {
       headers: ["Name", "Type", "Binding", "Scope", "Storage", "Source"],
@@ -111,7 +111,103 @@ const PolyglotWorkspace = (() => {
     return {nodes, edges, cardWidth, cardHeight, width: Math.max(...nodes.map(n => n.x)) + cardWidth + padding,
       height: Math.max(...nodes.map(n => n.y)) + cardHeight + padding, truncated};
   }
-  return Object.freeze({readDraft, saveDraft, sourceRange, tableData, valueText, astIndex, astLabel, astLayout});
+  const phaseOrder = ["tokens", "recognition", "ast", "symbols", "ir", "bytecode", "execution"];
+  function pipelineStatus(stages, report) {
+    const count = (n, unit) => `${n.toLocaleString()} ${unit}`;
+    const metrics = {
+      tokens: () => count(stages.tokens.length, "tokens"),
+      recognition: () => count(stages.recognition.length, "constructs"),
+      ast: () => count(astIndex(stages.ast).length, "nodes"),
+      symbols: () => count(stages.symbols.length, "bindings"),
+      ir: () => count(stages.ir.reduce((n, fn) => n + fn.instructions.length, 0), "operations"),
+      bytecode: () => count(stages.bytecode.functions.reduce((n, fn) => n + fn.code.length, 0), "instructions")
+    };
+    const code = report?.diagnostics?.[0]?.code || "";
+    let failed = null;
+    if (report && !report.ok) {
+      if (/^L/.test(code) && !stages.tokens) failed = "tokens";
+      else if (/^P/.test(code) && !stages.ast) failed = "ast";
+      else if (/^S/.test(code) && !stages.symbols) failed = "symbols";
+      else if (/^R/.test(code) && stages.bytecode) failed = "execution";
+      else if (code === "C002") failed = "bytecode";
+    }
+    return Object.fromEntries(phaseOrder.map(stage => {
+      if (stage === failed) return [stage, {state: "failed", text: `Stopped · ${code}`}];
+      if (stages[stage] !== undefined) return [stage, {state: "ready", text: metrics[stage]()}];
+      if (stage === "execution" && stages.bytecode && report?.ok) return [stage,
+        ["run", "exec"].includes(report.operation) ? {state: "ready", text: count(report.steps || 0, "steps run")} : {state: "waiting", text: "Not run"}];
+      if (report?.operation === "exec") return [stage, {state: "unavailable", text: "Source not loaded"}];
+      // Recognition is only published after the entire parser succeeds.
+      if (stage === "recognition" && failed === "ast") return [stage, {state: "blocked", text: "Parser incomplete"}];
+      if (failed && phaseOrder.indexOf(stage) > phaseOrder.indexOf(failed)) return [stage, {state: "blocked", text: "Blocked"}];
+      return [stage, {state: report ? "unavailable" : "waiting", text: report ? "Unavailable" : "Not compiled"}];
+    }));
+  }
+  function irText(i, functions = []) {
+    const t = n => `t${n}`, args = (i.args || []).map(t).join(", ");
+    const assign = value => `${t(i.dest)} = ${value}${i.type ? ` : ${i.type}` : ""}`;
+    const slot = `${i.storage}[${i.slot}]`;
+    switch (i.op) {
+      case "CONST": return assign(JSON.stringify(i.value));
+      case "LOAD": return assign(slot);
+      case "STORE": return `${slot} = ${t(i.value)}`;
+      case "MOVE": return assign(t(i.value));
+      case "BINARY": return assign(`${t(i.left)} ${i.operator} ${t(i.right)}`);
+      case "UNARY": return assign(`${i.operator} ${t(i.value)}`);
+      case "WIDEN": return assign(`float(${t(i.value)})`);
+      case "FORMAT": return assign(`format(${JSON.stringify(i.specifier)}, ${t(i.value)})`);
+      case "LABEL": return `${i.label}:`;
+      case "JUMP": return `goto ${i.target}`;
+      case "BRANCH": return `if ${t(i.condition)} goto ${i.true} else ${i.false}`;
+      case "CALL": {
+        const call = `call ${functions.find(fn => fn.id === i.function)?.name ?? `fn[${i.function}]`}(${args})`;
+        return i.dest === null ? call : assign(call);
+      }
+      case "RETURN_VALUE": return `return ${t(i.value)}`;
+      case "RETURN_VOID": return "return";
+      case "OUTPUT": return `output(${args}; sep=${JSON.stringify(i.separator)}, end=${JSON.stringify(i.ending)})`;
+      case "ARRAY_BUILD": return assign(`[${args}]`);
+      case "ARRAY_NEW": return assign(`new ${i.element_type}[${t(i.size)}]`);
+      case "ARRAY_GET": return assign(`${t(i.array)}[${t(i.index)}]`);
+      case "ARRAY_SET": return `${t(i.array)}[${t(i.index)}] = ${t(i.value)}`;
+      case "ARRAY_LENGTH": return assign(`len(${t(i.array)})`);
+      case "ARRAY_CHECK": return `check_bounds ${t(i.array)}[${t(i.index)}]`;
+      case "ARRAY_SIZE_CHECK": return `check_size ${t(i.array)}, ${t(i.size)}`;
+      case "ASSERT": return `assert ${t(i.condition)}, ${i.code}, ${JSON.stringify(i.message)}`;
+      case "TRAP": return `trap ${i.code}, ${JSON.stringify(i.message)}`;
+      default: return `${i.op} ${Object.entries(i).filter(([k]) => !["op", "source"].includes(k)).map(([k,v]) => `${k}=${valueText(v)}`).join(", ")}`;
+    }
+  }
+  function bytecodeMeaning(i, artifact) {
+    const a = i.args, quoted = value => JSON.stringify(value);
+    switch (i.op) {
+      case "CONST": return `Push ${quoted(artifact.constants[a[0]]?.value)} from constant #${a[0]}.`;
+      case "LOAD_LOCAL": case "LOAD_GLOBAL": return `Push ${i.op === "LOAD_LOCAL" ? "local" : "global"} slot ${a[0]}.`;
+      case "STORE_LOCAL": case "STORE_GLOBAL": return `Pop a value into ${i.op === "STORE_LOCAL" ? "local" : "global"} slot ${a[0]}.`;
+      case "BINARY": return `Pop right, then left; push left ${a[0]} right.`;
+      case "UNARY": return `Pop a value; apply ${a[0]}; push the result.`;
+      case "JUMP": return `Continue at instruction #${a[0]} in this function.`;
+      case "JUMP_IF_FALSE": return `Pop a Boolean; jump to #${a[0]} if false.`;
+      case "CALL": return `Call ${artifact.functions.find(fn => fn.id === a[0])?.name ?? `function #${a[0]}`} with ${a[1]} stack arguments.`;
+      case "RETURN_VALUE": return "Pop the return value; restore the caller’s frame and push the value.";
+      case "RETURN_VOID": return "Return to the caller without a value; the entry frame finishes execution.";
+      case "OUTPUT": return `Pop ${a[0]} values; print in source order with separator ${quoted(a[1])} and ending ${quoted(a[2])}.`;
+      case "FORMAT": return `Pop a value; push its ${a[0]} formatted string.`;
+      case "ARRAY_BUILD": return `Pop ${a[1]} values; push a ${a[0]} array.`;
+      case "ARRAY_NEW": return `Pop a length; allocate a ${a[0]} array with default values.`;
+      case "ARRAY_GET": return "Pop index and array; check bounds and push the element.";
+      case "ARRAY_SET": return "Pop value, index and array; check bounds and store the element.";
+      case "ARRAY_CHECK": return "Pop index and array; validate the index before assignment.";
+      case "ARRAY_LENGTH": return "Pop an array; push its length.";
+      case "ARRAY_SIZE_CHECK": return "Pop declared size and array; check their lengths match.";
+      case "ASSERT": return `Pop a Boolean; stop with ${a[0]} if false: ${a[1]}`;
+      case "TRAP": return `Stop with ${a[0]}: ${a[1]}`;
+      case "POP": return "Discard the top stack value.";
+      default: return "See the raw instruction and its operands.";
+    }
+  }
+  return Object.freeze({readDraft, saveDraft, sourceRange, tableData, valueText, astIndex, astLabel, astLayout,
+    phaseOrder, pipelineStatus, irText, bytecodeMeaning});
 })();
 // Visual tokenization only. It never decides whether source can compile or execute.
 const PolyglotHighlight = (() => {
@@ -286,6 +382,7 @@ function replaceEditorText(text, from, to, selection = "end") {
   editor.setSelectionRange(selection === "select" ? from : end, end);
 }
 let stages = {}, selectedStage = "recognition", busy = false, examples = {}, inspectionMatchesSource = false;
+let compilationReport = null;
 let graphCleanup = null, astPresentation = "diagram";
 let revision = 0, draftTimer, initialized = false, baselineSource = "", baselineFilename = "program.poly";
 let selectedExample = "", rawStage = false, draftNeedsSave = false, draftSaved = true;
@@ -342,15 +439,44 @@ window.addEventListener("beforeunload", event => {
 });
 $("filename").addEventListener("input", dirty);
 const stageTitles = {recognition: "Syntax recognition", tokens: "Lexer tokens", ast: "Abstract syntax tree",
-  symbols: "Symbols and types", ir: "Typed intermediate representation", bytecode: "VM bytecode"};
+  symbols: "Symbols and types", ir: "Typed intermediate representation", bytecode: "VM bytecode", execution: "Virtual machine execution"};
 const stageDescriptions = {
   recognition: "See which syntax each statement uses before it becomes one shared language.",
   tokens: "The lexer separates your source into names, values, operators and punctuation.",
   ast: "Explore the structure of your program, with syntax differences normalized away.",
   symbols: "See each name, its checked type and the scope where it belongs.",
   ir: "Follow typed operations and explicit control flow before bytecode generation.",
-  bytecode: "Inspect the validated stack instructions executed by Polyglot’s virtual machine."
+  bytecode: "Inspect the validated stack instructions executed by Polyglot’s virtual machine.",
+  execution: "Run generated bytecode on Polyglot’s bounded stack machine and inspect its real output."
 };
+const phaseGuides = {
+  tokens: ["Source characters → token stream", "The lexer is shared by every syntax family. NEWLINE tokens preserve layout; EOF marks the end of input."],
+  recognition: ["Tokens → syntax-family dispatch", "Recognition and AST construction happen in the same parser pass. Shared C-style constructs retain candidate families instead of guessing a language."],
+  ast: ["Tokens + block layout → shared AST", "An AST shows program structure, not every grammar rule. Different output spellings normalize into shared nodes; successful semantic analysis annotates them with types."],
+  symbols: ["AST → checked names, types and scopes", "Every syntax family uses the same symbol table. Scope numbers distinguish bindings; storage slots describe where values will live."],
+  ir: ["Checked AST → typed three-address code", "t0, t1, … are compiler temporaries within each function. Loops become labels, branches and jumps; explicit widening converts int values to float."],
+  bytecode: ["Typed IR → validated stack bytecode", "Temporaries become local slots. Instructions push and pop values; jump targets are instruction offsets within a function. This is Polyglot VM code."],
+  execution: ["Validated bytecode → output", "Execution creates call frames and an operand stack. Instruction, call-depth, output and time limits bound the run. This view is a run summary, not a live execution trace."]
+};
+const demoCases = {
+  "p1_mixed.poly": {stage: "recognition", purpose: "Trace six syntax families into one program. Then inspect the shared Output nodes and generated instructions."},
+  "mixed_nesting.poly": {stage: "ast", purpose: "Follow a braced loop containing indented branches. The real program prints 22."},
+  "arrays_mixed.poly": {stage: "ir", purpose: "Pass an array into a shared function. Find indexing and bounds checks in the IR, then compare the VM instructions."},
+  "error_type.poly": {stage: "symbols", purpose: "Show a semantic type error: parsing succeeds, but no executable bytecode is produced. Select the diagnostic to locate it."}
+};
+function updateDemoPurpose() { $("demo-purpose").textContent = demoCases[$("demo-case").value].purpose; }
+$("demo-case").addEventListener("change", updateDemoPurpose);
+$("load-demo").addEventListener("click", async () => {
+  if (busy) return;
+  const name = $("demo-case").value;
+  if (!Object.hasOwn(examples, name) || !await canReplaceSource() || busy) return;
+  selectedExample = name; $("examples").value = name;
+  loadSource(examples[name], name);
+  rawStage = false; selectStage($("tab-" + demoCases[name].stage));
+  $("phase-guide").open = true;
+  await action("run");
+});
+updateDemoPurpose();
 const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
 try {
   const savedTheme = localStorage.getItem("polyglot-theme");
@@ -829,6 +955,35 @@ function renderAstDiagram(parent, data) {
 }
 
 function renderStage(parent, stage, data) {
+  if (stage === "recognition") {
+    const families = new Map();
+    for (const record of data) {
+      const family = record.candidates?.length ? record.candidates.join(" / ") : record.family;
+      families.set(family, (families.get(family) || 0) + 1);
+    }
+    const summary = element("div", undefined, "syntax-summary");
+    for (const [family, count] of families) summary.append(element("span", `${family} · ${count}`));
+    parent.append(element("h3", "Many syntaxes → one program", "view-heading"), summary,
+      element("p", "Counts describe recognized constructs, including nested ones. Candidate groups share syntax; they are counted once.", "stage-explanation"));
+  }
+  if (stage === "execution") {
+    const report = compilationReport;
+    parent.append(element("h3", report.ok ? "Execution complete" : "Execution stopped", "view-heading"));
+    const stats = element("dl", undefined, "execution-stats");
+    for (const [key, value] of [["VM instructions executed", report.steps === undefined ? "Not reported for a stopped run" : report.steps.toLocaleString()],
+      ["Output lines", report.output ? report.output.replace(/\n$/, "").split("\n").length : 0],
+      ["Input", report.operation === "exec" ? "Uploaded bytecode artifact" : "Bytecode compiled from this source"]]) {
+      stats.append(element("dt", key), element("dd", String(value)));
+    }
+    parent.append(stats, element("h4", "Program output", "view-heading"),
+      element("pre", report.output || "No output produced.", "execution-output"));
+    for (const diagnostic of report.diagnostics || []) {
+      const error = element("div", diagnosticText(diagnostic), "diagnostic");
+      if (diagnostic.location) error.append(sourceLink(diagnostic.location, true));
+      parent.append(error);
+    }
+    return;
+  }
   const table = PolyglotWorkspace.tableData(stage, data);
   if (table) { renderTable(parent, table.headers, table.rows, table.locations); return; }
   if (stage === "ast") {
@@ -842,6 +997,8 @@ function renderStage(parent, stage, data) {
   }
   if (stage === "ir" || stage === "bytecode") {
     const functions = stage === "ir" ? data : data.functions;
+    parent.append(element("p", stage === "ir" ? "Readable three-address notation · t = temporary · global[n] / local[n] = storage slot. Original operands are preserved in Raw JSON." :
+      "Static instruction listing, not execution history. Each instruction includes its effect on the VM stack.", "stage-explanation"));
     if (stage === "bytecode") {
       parent.append(element("p", `Bytecode v${data.version} · entry ${data.entry} · ${data.global_count} global slots`, "stage-explanation"));
       const constants = element("details", undefined, "tree-node");
@@ -862,10 +1019,11 @@ function renderStage(parent, stage, data) {
         if (loaded || !details.open) return;
         loaded = true;
         const instructions = stage === "ir" ? fn.instructions : fn.code;
-        const rows = instructions.map((instruction, i) => [i, instruction.op,
-          stage === "ir" ? Object.entries(instruction).filter(([k]) => !["op", "source"].includes(k)).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(" · ") : instruction.args.map(PolyglotWorkspace.valueText).join(", "),
+        const rows = instructions.map((instruction, i) => [i,
+          stage === "ir" ? PolyglotWorkspace.irText(instruction, functions) : `${instruction.op} ${instruction.args.map(value => JSON.stringify(value)).join(", ")}`,
+          stage === "ir" ? instruction.op : PolyglotWorkspace.bytecodeMeaning(instruction, data),
           instruction.source ? `${instruction.source.line}:${instruction.source.column}` : "—"]);
-        renderTable(details, ["#", "Instruction", "Operands", "Position"], rows, instructions.map(instruction => instruction.source));
+        renderTable(details, ["#", stage === "ir" ? "Three-address code" : "Instruction", stage === "ir" ? "Operation" : "Stack effect", "Source"], rows, instructions.map(instruction => instruction.source));
       };
       details.addEventListener("toggle", populate); parent.append(details);
       if (fn === functions[0]) { details.open = true; populate(); }
@@ -874,24 +1032,46 @@ function renderStage(parent, stage, data) {
 }
 function showStage() {
   graphCleanup?.(); graphCleanup = null;
-  const available = stages[selectedStage] !== undefined;
-  const compiled = Object.keys(stages).length > 0;
+  const executionAvailable = compilationReport && ["run", "exec"].includes(compilationReport.operation) && stages.bytecode;
+  const available = selectedStage === "execution" ? !!executionAvailable : stages[selectedStage] !== undefined;
+  const status = PolyglotWorkspace.pipelineStatus(stages, compilationReport);
+  for (const button of document.querySelectorAll("[data-stage]")) {
+    const phase = status[button.dataset.stage]; button.dataset.state = phase.state;
+    button.querySelector("small").textContent = phase.text;
+    button.title = `${stageTitles[button.dataset.stage]} · ${phase.text}`;
+  }
+  const summary = $("pipeline-summary");
+  summary.textContent = !compilationReport ? "Check to explore · Run to execute" : compilationReport.operation === "exec" ? "Uploaded artifact · source stages unavailable" :
+    !compilationReport.ok ? "Stopped · inspect the diagnostic" : stages.bytecode ? ["run", "exec"].includes(compilationReport.operation) ? "Compiled & executed locally" : "Compiled · VM not run" : "Result unavailable";
   const panel = $("stage-data"); panel.replaceChildren();
   panel.dataset.raw = String(rawStage);
   panel.classList.toggle("ast-graph-panel", available && selectedStage === "ast" && !rawStage && astPresentation === "diagram");
   if (available) {
-    if (rawStage) panel.append(element("pre", JSON.stringify(stages[selectedStage], null, 2), "stage-json"));
+    if (rawStage) panel.append(element("pre", JSON.stringify(selectedStage === "execution" ? compilationReport : stages[selectedStage], null, 2), "stage-json"));
     else renderStage(panel, selectedStage, stages[selectedStage]);
   } else {
     const icon = element("div", undefined, "stage-empty-icon"); icon.append(glyph("tree-structure"));
-    panel.append(icon, element("div", compiled ? "A little more to fix" : "Look inside your program", "stage-empty-title"),
-      element("p", compiled ? "Fix the reported error to unlock this compiler stage." : "Run or check your code. Explore its tokens, syntax tree and instructions here.", "stage-empty-help"));
+    const vmWaiting = selectedStage === "execution" && stages.bytecode && !executionAvailable;
+    const noSource = compilationReport?.operation === "exec";
+    panel.append(icon, element("div", status[selectedStage].state === "failed" ? `${stageTitles[selectedStage]} stopped` : vmWaiting ? "Compiled, ready to run" : noSource ? "Artifact execution" : compilationReport ? "Stage not available" : "Look inside your program", "stage-empty-title"),
+      element("p", vmWaiting ? "Check and Build produce bytecode without executing it. Choose Run to see the VM result." : noSource ? "An uploaded artifact contains bytecode. Compile source to inspect its earlier stages." : compilationReport ? "Review the diagnostic in Output. Later stages are only available when their prerequisites succeed." : "Run or check your code. Explore its tokens, syntax tree and instructions here.", "stage-empty-help"));
+    if (status[selectedStage].state === "failed") for (const d of compilationReport.diagnostics) {
+      const diagnostic = element("button", diagnosticText(d), "diagnostic stage-empty-diagnostic");
+      diagnostic.disabled = !inspectionMatchesSource;
+      diagnostic.addEventListener("click", () => { if (inspectionMatchesSource) navigateSource(d.location); });
+      panel.append(diagnostic);
+    }
   }
   panel.dataset.empty = String(!available);
   panel.setAttribute("aria-labelledby", `tab-${selectedStage}`);
   $("stage-title").textContent = stageTitles[selectedStage];
   $("stage-description").textContent = stageDescriptions[selectedStage];
-  $("stage-state").textContent = available ? "Compiled" : compiled ? "Unavailable" : "Not compiled";
+  $("phase-flow").textContent = phaseGuides[selectedStage][0];
+  $("phase-concept").textContent = phaseGuides[selectedStage][1];
+  $("stage-state").textContent = status[selectedStage].text;
+  $("stage-state").dataset.state = status[selectedStage].state;
+  $("previous-stage").disabled = selectedStage === PolyglotWorkspace.phaseOrder[0];
+  $("next-stage").disabled = selectedStage === PolyglotWorkspace.phaseOrder.at(-1);
   $("stage-format").disabled = !available;
   $("stage-format").textContent = rawStage ? "Readable view" : "Raw JSON";
   $("stage-format").setAttribute("aria-pressed", String(rawStage));
@@ -903,7 +1083,7 @@ function dirty() {
   sourcePane.classList.remove("compiler-error");
   $("diagnostics").replaceChildren();
   $("execution-info").textContent = "";
-  stages = {}; inspectionMatchesSource = false;
+  stages = {}; compilationReport = null; inspectionMatchesSource = false;
   showStage();
   setStatus("Source changed", "changed");
   updateEditor();
@@ -921,6 +1101,7 @@ async function action(operation, extra = {}) {
   document.querySelectorAll("[data-operation], #upload-artifact").forEach(b => b.disabled = true);
   $("workbench").setAttribute("aria-busy", "true");
   setStatus(operation === "run" || operation === "exec" ? "Running…" : "Compiling…", "busy");
+  $("pipeline-summary").textContent = operation === "exec" ? "Executing uploaded artifact…" : "Compiling current source…";
   $("diagnostics").replaceChildren();
   const sourceAtStart = editor.value, filenameAtStart = $("filename").value, revisionAtStart = revision;
   try {
@@ -929,11 +1110,12 @@ async function action(operation, extra = {}) {
     if (!response.ok) throw new Error(result.error || "Request failed");
     inspectionMatchesSource = operation !== "exec" && revisionAtStart === revision;
     stages = revisionAtStart === revision ? result.stages || {} : {};
+    compilationReport = revisionAtStart === revision ? {operation, ok: result.ok, output: result.output || "", steps: result.steps, diagnostics: result.diagnostics || []} : null;
     sourcePane.classList.toggle("compiler-error", operation !== "exec" && revisionAtStart === revision && !result.ok);
     showStage();
     setStatus(revisionAtStart !== revision ? "Source changed during compilation" : result.ok ? "Successful" : "Stopped with an error",
       revisionAtStart !== revision ? "changed" : result.ok ? "success" : "error");
-    $("output").textContent = result.output || (result.ok ? operation === "run" || operation === "exec" ? "Program finished with no output." : "Compilation successful." : "Execution stopped.");
+    $("output").textContent = result.output || (result.ok ? operation === "run" || operation === "exec" ? "Program finished with no output." : "Compilation successful." : stages.bytecode && ["run", "exec"].includes(operation) ? "Execution stopped." : "Compilation stopped.");
     $("output").dataset.empty = String(!result.output);
     $("output-count").textContent = String(result.output ? result.output.replace(/\n$/, "").split("\n").length : 0);
     $("execution-info").textContent = result.steps ? `${result.steps.toLocaleString()} VM instructions` : "";
@@ -952,6 +1134,7 @@ async function action(operation, extra = {}) {
     }
     if (operation === "build" && result.ok) download(result.artifact_text, filenameAtStart.replace(/\.[^.]*$/, "") + ".pbc", "application/json");
   } catch (error) {
+    if (revisionAtStart === revision) { stages = {}; compilationReport = null; inspectionMatchesSource = false; showStage(); }
     setStatus("Connection error", "error");
     $("output").textContent = error.message;
     $("output").dataset.empty = "false";
@@ -1012,6 +1195,8 @@ editor.addEventListener("keydown", event => {
 });
 for (const name of ["check", "run", "build", "inspect"]) $(name).addEventListener("click", () => action(name));
 const stageTabs = [...document.querySelectorAll("[data-stage]")];
+$("previous-stage").addEventListener("click", () => selectStage(stageTabs[PolyglotWorkspace.phaseOrder.indexOf(selectedStage) - 1]));
+$("next-stage").addEventListener("click", () => selectStage(stageTabs[PolyglotWorkspace.phaseOrder.indexOf(selectedStage) + 1]));
 function selectStage(button) {
   selectedStage = button.dataset.stage;
   stageTabs.forEach(b => {

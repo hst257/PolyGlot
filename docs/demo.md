@@ -13,4 +13,18 @@
 11. Select `array_iteration.poly`. The Java-style array declaration and Python-style `for num in arr:` loop form one program. Verify `1` through `5` on separate lines and inspect its `ForEach` AST and ordinary array/control-flow IR.
 12. Select `p1_mixed.poly`. Demonstrate JavaScript const/let and an annotated function, Python array iteration, BASIC LET/PRINT, C printf, and Java/C++ output. Verify `total 8`, `formatted: 8, 2.500000, ready`, `BASIC output`, `8`, `done`. Inspect recognition and FORMAT/OUTPUT IR. Try reassigning the const binding using BASIC LET to show shared semantics. Clarify that BASIC labels/GOTO and unannotated functions remain deferred.
 
-Before October 19: rehearse on the actual laptop without internet; verify Python availability and the full test suite; retain a tested repository backup. No performance measurements have been claimed.
+Before presenting, rehearse on the actual laptop without internet, verify Python availability and the full test suite, and retain a tested repository backup. No performance measurements have been claimed.
+
+
+## Guided browser presentation
+
+1. Open Programs → Project walkthrough → Six syntax families → Load & run demo. Explain that Polyglot implements a restricted shared language with several syntax families; it does not invoke six external compilers.
+2. Use the pipeline ribbon to distinguish representation sizes from executed VM steps. The demo produces 110 tokens, 13 recognized constructs, 40 AST nodes, 7 bindings, 57 IR operations and 129 static bytecode instructions. Its successful run executes 194 instructions. These figures describe this exact bundled example, not performance benchmarks.
+3. In Syntax map, compare the syntax, grammar rule and normalized AST node columns. Expand the phase disclosure to explain ambiguous C-style attribution and the shared parser pass.
+4. Open AST and focus on a top-level construct. Expand its branches or the whole canvas. Explain why punctuation and grammar-only productions are absent from an abstract syntax tree. Use a node to select its source range.
+5. Open Types & scopes, then Typed IR. Explain temporary names, typed operations and control-flow labels. Open `sum_values` to show array iteration lowered into ordinary operations. Select a source position to connect an instruction to the program.
+6. Open Bytecode. Compare three-address operations to multiple stack instructions and their displayed effects. Open VM execution to show the actual run summary and output. Choose Check to demonstrate that compilation can succeed while the VM stays Not run.
+7. Load Semantic error. Show that Lexer, Syntax map and AST remain available, Types & scopes stops with S004, and IR/bytecode/execution are blocked. Select the diagnostic in the failed-stage view to highlight the offending assignment.
+8. Load Braces + indentation or Arrays + shared functions to answer follow-up questions with real examples. For independent artifact execution, use Build .pbc and Open bytecode; earlier source stages correctly become unavailable for an uploaded artifact.
+
+Phase disclosures, Previous/Next and Raw JSON support explanation during a viva. The VM panel summarizes a completed or stopped run; it does not display a live execution trace. Optimization and multi-error recovery remain deferred.

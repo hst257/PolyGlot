@@ -35,6 +35,19 @@ The editor automatically saves the current source and filename in this browser a
 
 The compiler explorer defaults to readable recognition/token/symbol tables, a connected AST diagram with node names and types, and per-function IR/bytecode instructions. The AST supports branch expansion, subtree focus, horizontal/vertical layouts, zoom, drag-to-pan and an expanded canvas; Outline remains available as an alternative. Position links jump to the source; selecting code highlights matching visible compiler records. **Raw JSON** retains the complete original representations. Large tables load more rows on demand. Editing source or its filename clears old diagnostics; responses for an earlier editor revision cannot attach stale error links.
 
+## Compiler-design walkthrough
+
+Open **Project walkthrough** in Programs and choose a demo. **Load & run demo** uses the real example and compiler, protects edited source before replacement, and opens the relevant inspection view:
+
+- **Six syntax families**: trace the recognition rules and their normalized AST node kinds in `p1_mixed.poly`.
+- **Braces + indentation**: inspect the connected tree for nested mixed block styles; the program prints `22`.
+- **Arrays + shared functions**: follow array access and bounds checks through typed IR and VM instructions.
+- **Semantic error**: show successful parsing followed by a type error, with IR and bytecode blocked.
+
+The pipeline ribbon shows actual representation sizes and whether each stage is available, stopped or blocked. Syntax recognition and AST construction are views of the same parser pass. **Check** and **Build** compile without running the VM; **Run** adds execution. The VM view reports real output and executed instruction count, not a step-by-step trace. Uploaded artifacts expose bytecode and execution without claiming source stages are available.
+
+The IR view uses readable three-address notation (`t2 = t0 + t1 : int`) and the bytecode view explains each instruction's stack effect. Source links and complete Raw JSON remain available. Expand the input/output disclosure above a view for a short explanation of its role. See [the demo script](docs/demo.md) and [design references](docs/ui-design.md#reference-informed-compiler-lab) for presentation guidance.
+
 ## CLI
 
 ```powershell

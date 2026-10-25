@@ -40,7 +40,7 @@
     <span>Polyglot</span>
   </a>
   <span class="header-divider" aria-hidden="true"></span>
-  <span class="workspace-label">Local workspace</span>
+  <span class="workspace-label">Compiler design lab</span>
   <div class="header-actions">
     <span class="local"><svg class="icon" aria-hidden="true"><use href="#ph-shield-check"></use></svg>Local execution</span>
     <span id="status" role="status" data-state="ready">Ready</span>
@@ -50,10 +50,34 @@
   </div>
 </header>
 <button id="sidebar-backdrop" aria-label="Close programs" hidden></button>
+<section class="pipeline" aria-label="Compilation pipeline">
+  <div class="pipeline-label"><strong>COMPILER PIPELINE</strong><span id="pipeline-summary" role="status">Check to explore · Run to execute</span></div>
+  <div class="tabs" role="tablist" aria-label="Compiler stages">
+    <button id="tab-tokens" role="tab" data-stage="tokens" aria-controls="stage-data" aria-selected="false" tabindex="-1"><span class="phase-name">Lexer</span><small>Not compiled</small></button>
+    <button id="tab-recognition" role="tab" data-stage="recognition" aria-controls="stage-data" aria-selected="true" tabindex="0"><span class="phase-name">Syntax map</span><small>Not compiled</small></button>
+    <button id="tab-ast" role="tab" data-stage="ast" aria-controls="stage-data" aria-selected="false" tabindex="-1"><span class="phase-name">AST</span><small>Not compiled</small></button>
+    <button id="tab-symbols" role="tab" data-stage="symbols" aria-controls="stage-data" aria-selected="false" tabindex="-1"><span class="phase-name">Types & scopes</span><small>Not compiled</small></button>
+    <button id="tab-ir" role="tab" data-stage="ir" aria-controls="stage-data" aria-selected="false" tabindex="-1"><span class="phase-name">Typed IR</span><small>Not compiled</small></button>
+    <button id="tab-bytecode" role="tab" data-stage="bytecode" aria-controls="stage-data" aria-selected="false" tabindex="-1"><span class="phase-name">Bytecode</span><small>Not compiled</small></button>
+    <button id="tab-execution" role="tab" data-stage="execution" aria-controls="stage-data" aria-selected="false" tabindex="-1"><span class="phase-name">VM execution</span><small>Not compiled</small></button>
+  </div>
+</section>
 <main class="workspace" id="workspace">
   <aside class="sidebar" id="program-sidebar" aria-label="Program files">
     <div class="sidebar-heading"><svg class="icon" aria-hidden="true"><use href="#ph-folder-open"></use></svg><h1>Programs</h1></div>
-    <p class="sidebar-intro">Your mixed-language playground.</p>
+    <p class="sidebar-intro">Six syntax families. One compiler.</p>
+    <details class="demo-picker">
+      <summary>Project walkthrough</summary>
+      <label for="demo-case">Choose a demonstration</label>
+      <select id="demo-case">
+        <option value="p1_mixed.poly">Six syntax families</option>
+        <option value="mixed_nesting.poly">Braces + indentation</option>
+        <option value="arrays_mixed.poly">Arrays + shared functions</option>
+        <option value="error_type.poly">Semantic error</option>
+      </select>
+      <p id="demo-purpose"></p>
+      <button id="load-demo" data-operation="demo">Load & run demo</button>
+    </details>
     <label class="sr-only" for="file-search">Find an example</label>
     <div class="file-search"><svg class="icon" aria-hidden="true"><use href="#ph-magnifying-glass"></use></svg><input id="file-search" type="search" placeholder="Find an example…" autocomplete="off"></div>
     <div class="file-list-heading">EXAMPLES <span id="file-count"></span></div>
@@ -123,20 +147,13 @@
   <section id="compiler-inspector" class="inspector" aria-labelledby="inspector-heading">
     <div class="panel-heading inspector-heading"><h2 id="inspector-heading"><svg class="icon" aria-hidden="true"><use href="#ph-tree-structure"></use></svg>Compiler explorer</h2><button id="inspect" class="icon-button" data-operation="inspect" aria-label="Inspect" title="Compile and inspect"><svg class="icon" aria-hidden="true"><use href="#ph-magnifying-glass"></use></svg></button></div>
     <p class="inspection-note" id="stage-description">One program. Every stage, explained.</p>
-    <div class="tabs" role="tablist" aria-label="Compiler stages">
-      <button id="tab-recognition" role="tab" data-stage="recognition" aria-controls="stage-data" aria-selected="true" tabindex="0">Recognition</button>
-      <button id="tab-tokens" role="tab" data-stage="tokens" aria-controls="stage-data" aria-selected="false" tabindex="-1">Tokens</button>
-      <button id="tab-ast" role="tab" data-stage="ast" aria-controls="stage-data" aria-selected="false" tabindex="-1">AST</button>
-      <button id="tab-symbols" role="tab" data-stage="symbols" aria-controls="stage-data" aria-selected="false" tabindex="-1">Symbols</button>
-      <button id="tab-ir" role="tab" data-stage="ir" aria-controls="stage-data" aria-selected="false" tabindex="-1">IR</button>
-      <button id="tab-bytecode" role="tab" data-stage="bytecode" aria-controls="stage-data" aria-selected="false" tabindex="-1">Bytecode</button>
-    </div>
-    <div class="stage-caption"><span id="stage-title">Syntax recognition</span><span id="stage-state">Not compiled</span><button id="stage-format" aria-pressed="false" disabled>Raw JSON</button></div>
+    <details class="phase-guide" id="phase-guide"><summary id="phase-flow">Source → compiler representation</summary><p id="phase-concept"></p></details>
+    <div class="stage-caption"><span id="stage-title">Syntax recognition</span><span id="stage-state">Not compiled</span><button id="previous-stage" class="text-button" aria-label="Previous compiler stage" title="Previous stage"><svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg></button><button id="next-stage" class="text-button" aria-label="Next compiler stage" title="Next stage"><svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg></button><button id="stage-format" aria-pressed="false" disabled>Raw JSON</button></div>
     <div id="stage-data" role="tabpanel" aria-labelledby="tab-recognition" tabindex="0" data-empty="true">Compile a program to inspect its stages.</div>
     <p class="inspector-footnote"><svg class="icon" aria-hidden="true"><use href="#ph-brackets-curly"></use></svg>Select code to find its compiler records.</p>
   </section>
 </main>
-<footer class="app-footer"><span class="footer-ready"><span class="connection-dot" aria-hidden="true"></span> All local. All yours.</span><span>Source <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> Tokens <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> AST <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> Semantics <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> IR <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> Bytecode <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> VM</span><span class="footer-shortcut"><kbd>Ctrl / ⌘ ↵</kbd> Run program</span></footer>
+<footer class="app-footer"><span class="footer-ready"><span class="connection-dot" aria-hidden="true"></span> Offline · Shared semantics · Custom VM</span><span>Source <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> Tokens <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> AST <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> Semantics <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> IR <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> Bytecode <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> VM</span><span class="footer-shortcut"><kbd>Ctrl / ⌘ ↵</kbd> Run program</span></footer>
 
 <script src="/app.js"></script>
 </body>

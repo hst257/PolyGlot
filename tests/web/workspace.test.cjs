@@ -58,8 +58,8 @@ test('diagnostic selection handles multiple lines, EOF and clamped locations', (
 });
 
 test('recognition retains ambiguous syntax families rather than inventing attribution', () => {
-  const result = tableData('recognition', [{family: 'shared-c', candidates: ['C', 'C++', 'Java'], grammar_rule: 'declaration', span: {line: 2, column: 1}}]);
-  assert.deepEqual(result.rows[0], ['C / C++ / Java', 'declaration', '2:1']);
+  const result = tableData('recognition', [{family: 'shared-c', candidates: ['C', 'C++', 'Java'], grammar_rule: 'declaration', kind:'Declare', span: {line: 2, column: 1}}]);
+  assert.deepEqual(result.rows[0], ['C / C++ / Java', 'declaration', 'Declare', '2:1']);
 });
 
 test('inspector preserves literal values and distinguishes function and const bindings', () => {
@@ -122,4 +122,23 @@ test('collapsed branches and rendering limits never invent or orphan nodes', () 
   assert.equal(limited.truncated,true); assert.equal(limited.nodes.length,3);
   const visible=new Set(limited.nodes.map(n=>n.id));
   assert.ok(limited.edges.every(edge=>visible.has(edge.from)&&visible.has(edge.to)));
+});
+
+test('three-address display preserves control flow, typed values and output separators', () => {
+  const {irText} = require('../../src/polyglot/web/static/app.js').Workspace;
+  assert.equal(irText({op:'BINARY',dest:4,left:1,right:3,operator:'+',type:'int'}), 't4 = t1 + t3 : int');
+  assert.equal(irText({op:'BRANCH',condition:0,true:'L1',false:'L2'}), 'if t0 goto L1 else L2');
+  assert.equal(irText({op:'CALL',dest:0,function:3,args:[1,2],type:'int'},[{id:3,name:'add'}]), 't0 = call add(t1, t2) : int');
+  assert.equal(irText({op:'CALL',dest:null,function:3,args:[]},[{id:3,name:'show'}]), 'call show()');
+  assert.equal(irText({op:'OUTPUT',args:[0],separator:' ',ending:'\n'}), 'output(t0; sep=" ", end="\\n")');
+  assert.equal(irText({op:'ARRAY_GET',dest:2,array:0,index:1,type:'int'}), 't2 = t0[t1] : int');
+});
+
+test('bytecode explanations resolve real constants, callees and branch addresses', () => {
+  const {bytecodeMeaning} = require('../../src/polyglot/web/static/app.js').Workspace;
+  const artifact = {constants:[{type:'string',value:'<hello>\n'}],functions:[{id:2,name:'twice'}]};
+  assert.equal(bytecodeMeaning({op:'CONST',args:[0]},artifact), 'Push "<hello>\\n" from constant #0.');
+  assert.equal(bytecodeMeaning({op:'CALL',args:[2,1]},artifact), 'Call twice with 1 stack arguments.');
+  assert.match(bytecodeMeaning({op:'JUMP_IF_FALSE',args:[14]},artifact), /jump to #14 if false/);
+  assert.match(bytecodeMeaning({op:'OUTPUT',args:[2,' ','\n']},artifact), /source order.*separator " ".*ending "\\n"/);
 });

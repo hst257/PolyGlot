@@ -156,3 +156,15 @@ The AST tab now defaults to a node-and-connector diagram rather than a nested ou
 - Live browser verification compiled `result = 1 + 2 * 3` and printed `7`. The graph placed multiplication under addition, with literals attached to the correct operator. The expanded top-to-bottom view displayed all nine nodes including the output statement.
 - Dragging the graph background changed its vertical scroll position; selecting the literal `2` restored the normal view and selected exactly `2` in the editor. Browser error/warning logs were empty. At a measured 390px CSS width, both graph toolbars fitted their container and document scroll width equaled client width. Temporary viewport overrides were reset.
 - JavaScript syntax and diff whitespace checks passed. No runtime dependency or compiler behavior was added or changed. No GitHub push was performed.
+
+## Reference-informed compiler design lab — October 25, 2026
+
+Reviewed primary materials from Compiler Explorer, AST Explorer and ComVis; the reference links and precise adaptations are recorded in `docs/ui-design.md`. The local IDE now exposes a result-based pipeline ribbon, syntax-family counts and normalized AST node kinds, phase input/output explanations, readable three-address IR, VM instruction explanations, a separate execution summary and four real project walkthroughs. No compiler, worker, server, artifact-format or language-semantic changes were made.
+
+- Complete Python regression suite: **259 passed**, including loopback HTTP tests, in 6.29 seconds.
+- Frontend suite: **54 passed**. Added real-compiler interaction coverage for compile-versus-run state, result invalidation, lexical/parser/semantic/runtime failure cutoffs, protected walkthrough loading, failed-stage diagnostic navigation, source-independent artifact inspection, phase navigation and readable instruction formatting.
+- JavaScript syntax and diff whitespace checks passed. No runtime dependencies or remote assets were added.
+- Live browser verification ran the six-syntax demo with its five expected output lines and measured representation counts. A three-address call linked to exactly `sum_values(values)` in the editor. The semantic-error demo retained available lexer/parser data, stopped Types & scopes at S004 and blocked IR/bytecode/VM; compilation was correctly distinguished from execution. Both light and dark layouts were reviewed.
+- At a measured **389px CSS width**, document scroll width equaled client width. The pipeline scrolled inside its own region. The Programs drawer loaded the Braces + indentation walkthrough, closed itself and printed `22`; VM summary reported 219 executed instructions. Browser warning/error logs were empty and the temporary viewport override was reset.
+
+The ribbon does not simulate phase timing. Recognition and AST are outputs of one parser pass. Execution is a run summary, not live stepping; a failed run does not invent an instruction count when the VM did not return one. Optimization and multiple-error recovery remain deferred. Changes remain local; no GitHub push was performed.

@@ -8,7 +8,7 @@ The editor and compiler explorer share the available width instead of sitting in
 
 ## Layout and controls
 
-- The desktop page has a 58px header, a flexible workspace and a 30px footer. Source, examples, compiler records and output scroll independently.
+- The desktop page has a 58px header, an 84px pipeline ribbon, a flexible workspace and a 30px footer. Source, examples, compiler records and output scroll independently.
 - The Programs button collapses the 216px sidebar (200px on narrower desktops). Examples are searchable by their actual filenames. Language support is a disclosure at the bottom, alongside file actions.
 - The compiler explorer starts at approximately 32% of viewport width, bounded by available editor space. Its vertical separator supports pointer dragging, Left/Right, Shift for larger steps, Home and End. The editor retains at least 400px in desktop layouts.
 - The output divider supports dragging, Up/Down, Shift, Home and End in both normal and focus modes. Height bounds preserve room for editing. The output heading includes its line count and Clear action.
@@ -37,3 +37,23 @@ Tables reveal 200 rows at a time, and tree collections reveal 100 children at a 
 Official, regular-weight Phosphor symbols are reused from the existing inline sprite. No icon family, remote font, external asset or runtime package has been added. Originals and licenses remain in `third_party/phosphor/`. `tools/vendor_phosphor.py` regenerates the sprite.
 
 The compiler, server, worker, API and artifact format are unchanged. Node and jsdom are optional development tools for the editor interaction tests; the running app still requires only Python.
+
+## Reference-informed compiler lab
+
+The October 25 compiler-design update uses these primary references, reviewed on October 25, 2026:
+
+| Reference | Pattern adapted for Polyglot |
+| --- | --- |
+| [Compiler Explorer](https://github.com/compiler-explorer/compiler-explorer/blob/main/docs/WhatIsCompilerExplorer.md) | Keep source beside generated instructions, preserve source mapping, and explain instructions at the point of inspection. Polyglot's bytecode rows explain their stack effect and resolve constant values, function names and jump offsets. |
+| [AST Explorer](https://github.com/fkling/astexplorer#more-features) and [its live interface](https://astexplorer.net/) | Keep readable tree and raw representations together, with links between nodes and source. Polyglot retains the connected diagram, optional outline and complete JSON, plus an explanation of AST versus grammar derivation. |
+| [ComVis intermediate-code visualizer](https://comvis.pr.ac.rs/makeTree.jsp) | Make teaching stages, syntax-tree inspection, symbol information and three-address code explicit. Polyglot adds a real-result pipeline ribbon, phase explanations and runnable project demonstrations. |
+
+These are interaction references, not copied source or assets. No external compiler, service, AI-generated stage data or runtime dependency was introduced.
+
+The ribbon shows Lexer → Syntax map → AST → Types & scopes → Typed IR → Bytecode → VM execution. Syntax map and AST belong to the same parser pass; the disclosure says so explicitly. It is navigation over returned results, not a simulated compiler animation. Counts come from actual compiler records. Parser failure leaves recognition incomplete because that output is published only after parsing finishes. Lexical, parser and semantic diagnostics identify the stopped view; later representations are blocked. Unknown/internal/request failures do not invent a completed or failed phase. Editing invalidates the result. A successful Check/Build leaves the VM marked Not run. An uploaded artifact exposes no source-stage data or links into unrelated editor text.
+
+The Syntax map groups distinctive and shared syntax families without double-counting candidate groups. Its table includes the actual normalized node kind, letting a presenter follow different spellings into common compiler structures. Typed IR is formatted as three-address notation with temporary names, types, storage slots, labels, branches and named calls. The bytecode listing distinguishes static generated instructions from the VM's dynamic instruction count. Every original operand remains available in JSON.
+
+Project walkthrough is a sidebar disclosure containing four existing examples. Loading one runs the real compiler and selects the relevant view; the existing edited-source replacement guard also applies. Phase disclosures explain input, output and key concepts. Previous/Next controls supplement keyboard-operable tabs. The VM view is a result summary; it does not claim instruction stepping, live stack tracing or an optimizer.
+
+At small widths the pipeline scrolls horizontally within its own region and the inspector stays below the editor. The sidebar drawer begins below the ribbon and closes after a demo loads. The existing theme, focus mode, draft recovery and pane resizing remain available.
