@@ -146,3 +146,13 @@ The workspace now uses a cool slate/blue theme in both light and dark modes. The
 - At measured CSS widths of 389px and 769px, document scroll width matched client width. At the smaller width, the Programs drawer searched for array examples, loaded `array_iteration.poly`, closed itself and ran the program with output `1` through `5`. The temporary viewport override was reset. Physical touch-device testing is not claimed.
 
 All assets remain local. The optional Node/jsdom tools are development-only. The previous current-draft storage format remains readable, and the new layout preferences use a separate storage key. Changes are local only; no GitHub push was performed.
+
+## Connected AST diagram — October 25, 2026
+
+The AST tab now defaults to a node-and-connector diagram rather than a nested outline. Node indexing follows only real AST records and their semantic child fields, excluding metadata and source-location dictionaries. The layout preserves child order and parent relationships. It supports branch toggles, top-level subtree focus, left-to-right and top-to-bottom arrangements, bounded zoom, Fit, drag-to-pan and an expanded view. Outline and complete Raw JSON remain available. Large views render up to 250 actual nodes and report the subtree total.
+
+- Frontend regression suite: **48 passed**. New coverage checks metadata exclusion, child-field attribution, non-overlapping layouts, correct edges, branch collapse, render limits, graph controls, focus/orientation, view cleanup and source navigation from the expanded canvas.
+- Python checks available without a permission escalation: **249 passed, 10 network tests deselected**. The attempted full-suite rerun did not start because automatic permission review timed out. The previous 259-test full-suite result remains the baseline; compiler/server/worker files are unchanged.
+- Live browser verification compiled `result = 1 + 2 * 3` and printed `7`. The graph placed multiplication under addition, with literals attached to the correct operator. The expanded top-to-bottom view displayed all nine nodes including the output statement.
+- Dragging the graph background changed its vertical scroll position; selecting the literal `2` restored the normal view and selected exactly `2` in the editor. Browser error/warning logs were empty. At a measured 390px CSS width, both graph toolbars fitted their container and document scroll width equaled client width. Temporary viewport overrides were reset.
+- JavaScript syntax and diff whitespace checks passed. No runtime dependency or compiler behavior was added or changed. No GitHub push was performed.

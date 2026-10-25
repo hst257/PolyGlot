@@ -54,7 +54,64 @@ const PolyglotWorkspace = (() => {
     };
     return null;
   }
-  return Object.freeze({readDraft, saveDraft, sourceRange, tableData, valueText});
+  function astIndex(root) {
+    const nodes = [], pending = [{node: root, parent: null, field: ""}], visited = new WeakSet();
+    while (pending.length) {
+      const item = pending.pop(), node = item.node;
+      if (!node || typeof node !== "object" || typeof node.kind !== "string" || !node.data || visited.has(node)) continue;
+      visited.add(node);
+      const id = nodes.length, entry = {id, node, parent: item.parent, field: item.field, children: []};
+      nodes.push(entry);
+      if (item.parent !== null) nodes[item.parent].children.push(id);
+      const children = [], fields = Object.entries(node.data).reverse().map(([field, value]) => ({field, value}));
+      while (fields.length) {
+        const {field, value} = fields.pop();
+        if (!value || typeof value !== "object") continue;
+        if (typeof value.kind === "string" && value.data) { children.push({node: value, parent: id, field}); continue; }
+        const entries = Array.isArray(value) ? value.map((v, i) => [`${field}[${i}]`, v]) :
+          Object.entries(value).filter(([key]) => !["span", "meta", "binding"].includes(key)).map(([key, v]) => [`${field}.${key}`, v]);
+        for (let i = entries.length - 1; i >= 0; i--) fields.push({field: entries[i][0], value: entries[i][1]});
+      }
+      for (let i = children.length - 1; i >= 0; i--) pending.push(children[i]);
+    }
+    for (let i = nodes.length - 1; i >= 0; i--) nodes[i].size = 1 + nodes[i].children.reduce((sum, child) => sum + nodes[child].size, 0);
+    return nodes;
+  }
+  function astLabel(node) {
+    const data = node.data || {};
+    if (node.kind === "Literal") return JSON.stringify(data.value);
+    return String(data.name ?? data.op ?? (node.kind === "Program" ? "Whole program" : node.kind === "Block" ? "Statements" : node.kind));
+  }
+  function astLayout(index, root, expanded, vertical = false, limit = 250) {
+    if (!index[root]) return {nodes: [], edges: [], width: 0, height: 0, truncated: false};
+    const nodes = [], pending = [{id: root, depth: 0, parent: null}];
+    while (pending.length && nodes.length < limit) {
+      const item = pending.pop(), position = nodes.length;
+      nodes.push({...item, children: [], span: 1});
+      if (item.parent !== null) nodes[item.parent].children.push(position);
+      if (expanded.has(item.id)) {
+        const children = index[item.id].children;
+        for (let i = children.length - 1; i >= 0; i--) pending.push({id: children[i], depth: item.depth + 1, parent: position});
+      }
+    }
+    const truncated = pending.length > 0;
+    for (let i = nodes.length - 1; i >= 0; i--) {
+      if (nodes[i].children.length) nodes[i].span = nodes[i].children.reduce((sum, child) => sum + nodes[child].span, 0);
+    }
+    nodes[0].offset = 0;
+    const cardWidth = 164, cardHeight = 72, padding = 24;
+    for (const node of nodes) {
+      const center = node.offset + (node.span - 1) / 2;
+      node.x = padding + (vertical ? center * 192 : node.depth * 236);
+      node.y = padding + (vertical ? node.depth * 140 : center * 100);
+      let offset = node.offset;
+      for (const child of node.children) { nodes[child].offset = offset; offset += nodes[child].span; }
+    }
+    const edges = nodes.filter(n => n.parent !== null).map(n => ({from: nodes[n.parent].id, to: n.id}));
+    return {nodes, edges, cardWidth, cardHeight, width: Math.max(...nodes.map(n => n.x)) + cardWidth + padding,
+      height: Math.max(...nodes.map(n => n.y)) + cardHeight + padding, truncated};
+  }
+  return Object.freeze({readDraft, saveDraft, sourceRange, tableData, valueText, astIndex, astLabel, astLayout});
 })();
 // Visual tokenization only. It never decides whether source can compile or execute.
 const PolyglotHighlight = (() => {
@@ -229,6 +286,7 @@ function replaceEditorText(text, from, to, selection = "end") {
   editor.setSelectionRange(selection === "select" ? from : end, end);
 }
 let stages = {}, selectedStage = "recognition", busy = false, examples = {}, inspectionMatchesSource = false;
+let graphCleanup = null, astPresentation = "diagram";
 let revision = 0, draftTimer, initialized = false, baselineSource = "", baselineFilename = "program.poly";
 let selectedExample = "", rawStage = false, draftNeedsSave = false, draftSaved = true;
 function saveDraftNow() {
@@ -405,7 +463,7 @@ $("sidebar-toggle").addEventListener("click", () => setSidebar(!sidebarCollapsed
 $("sidebar-backdrop").addEventListener("click", () => setSidebar(true, true));
 maximizeButton.addEventListener("click", () => setMaximized(!maximized));
 document.addEventListener("keydown", event => {
-  if (event.key !== "Escape" || event.isComposing || pendingReplacement) return;
+  if (event.key !== "Escape" || event.isComposing || pendingReplacement || document.body.classList.contains("ast-expanded")) return;
   if (maximized) { event.preventDefault(); setMaximized(false); maximizeButton.focus(); }
   else if (compactLayout() && !sidebarCollapsed) { event.preventDefault(); setSidebar(true); }
 });
@@ -622,10 +680,166 @@ function renderTree(parent, key, value, depth = 0) {
   if (depth < 2 || (key === "body" && depth < 3)) { details.open = true; populate(); }
 }
 
+function renderAstDiagram(parent, data) {
+  const index = PolyglotWorkspace.astIndex(data);
+  const controller = new AbortController();
+  let root = 0, expanded = new Set([0]), vertical = false, zoom = 1, expandedView = false, layout, fitMode = "width", pan = null;
+  const view = element("section", undefined, "ast-view"); view.setAttribute("aria-label", "Syntax tree diagram");
+  const controls = element("div", undefined, "ast-controls");
+  const focusLabel = element("label", "Focus", "ast-focus-label");
+  const focus = element("select"); focus.setAttribute("aria-label", "Syntax tree focus");
+  focusLabel.append(focus);
+  for (const id of [0, ...(index[0]?.children || [])]) {
+    const item = index[id], label = id === 0 ? "Whole program" : `${item.node.kind}${PolyglotWorkspace.astLabel(item.node) === item.node.kind ? "" : ` ${PolyglotWorkspace.astLabel(item.node)}`} · L${item.node.span?.line || 1}`;
+    const option = element("option", label); option.value = String(id); focus.append(option);
+  }
+  const orientation = element("button", "Top to bottom", "ast-control"); orientation.setAttribute("aria-label", "Use top-to-bottom tree layout");
+  const expand = element("button", "Expand all", "ast-control"), collapse = element("button", "Collapse all", "ast-control");
+  const outline = element("button", "Outline", "ast-control");
+  outline.addEventListener("click", () => { astPresentation = "outline"; showStage(); });
+  const enlarge = element("button", "Expand view", "ast-control"); enlarge.setAttribute("aria-label", "Expand tree view"); enlarge.setAttribute("aria-pressed", "false");
+  controls.append(focusLabel, orientation, expand, collapse, outline, enlarge);
+  const viewport = element("div", undefined, "ast-viewport"); viewport.tabIndex = 0;
+  viewport.setAttribute("aria-label", "Syntax tree canvas. Scroll or drag the background to pan.");
+  const canvas = element("div", undefined, "ast-canvas"), scene = element("div", undefined, "ast-scene");
+  canvas.append(scene); viewport.append(canvas);
+  const footer = element("div", undefined, "ast-toolbar"), count = element("span", "", "ast-count"); count.setAttribute("role", "status");
+  const zoomOut = element("button", "−", "ast-control"); zoomOut.setAttribute("aria-label", "Zoom out syntax tree");
+  const zoomIn = element("button", "+", "ast-control"); zoomIn.setAttribute("aria-label", "Zoom in syntax tree");
+  const percent = element("span", "100%", "ast-zoom"); percent.setAttribute("aria-live", "polite");
+  const fit = element("button", "Fit", "ast-control"); fit.setAttribute("aria-label", "Fit syntax tree to view");
+  const reset = element("button", "100%", "ast-control"); reset.setAttribute("aria-label", "Reset syntax tree zoom");
+  footer.append(count, zoomOut, percent, zoomIn, fit, reset);
+  const hint = element("p", "Select a node to jump to source. Use its arrow to expand a branch.", "ast-hint");
+  view.append(controls, viewport, footer, hint); parent.append(view);
+  function svg(tag, attributes = {}) {
+    const node = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    for (const [name, value] of Object.entries(attributes)) node.setAttribute(name, String(value));
+    return node;
+  }
+  function applyZoom(value, center = true) {
+    const old = zoom;
+    zoom = Math.max(.25, Math.min(1.5, value));
+    const centerX = (viewport.scrollLeft + viewport.clientWidth / 2) / old;
+    const centerY = (viewport.scrollTop + viewport.clientHeight / 2) / old;
+    scene.style.transform = `scale(${zoom})`;
+    canvas.style.width = `${Math.max(viewport.clientWidth, layout.width * zoom)}px`;
+    canvas.style.height = `${Math.max(viewport.clientHeight, layout.height * zoom)}px`;
+    scene.style.left = `${Math.max(0, (viewport.clientWidth - layout.width * zoom) / 2)}px`;
+    percent.textContent = `${Math.round(zoom * 100)}%`;
+    zoomOut.disabled = zoom <= .25; zoomIn.disabled = zoom >= 1.5;
+    if (center) { viewport.scrollLeft = centerX * zoom - viewport.clientWidth / 2; viewport.scrollTop = centerY * zoom - viewport.clientHeight / 2; }
+  }
+  function fitGraph(mode = "all") {
+    const width = viewport.clientWidth || 500, height = viewport.clientHeight || 400;
+    applyZoom(Math.min(1, (width - 16) / layout.width, mode === "all" ? (height - 16) / layout.height : 1), false);
+    viewport.scrollLeft = 0; viewport.scrollTop = 0;
+  }
+  function draw(focusId = null) {
+    layout = PolyglotWorkspace.astLayout(index, root, expanded, vertical);
+    scene.replaceChildren(); scene.style.width = `${layout.width}px`; scene.style.height = `${layout.height}px`;
+    const edges = svg("svg", {class: "ast-edges", width: layout.width, height: layout.height, "aria-hidden": "true"});
+    const positions = new Map(layout.nodes.map(n => [n.id, n]));
+    for (const edge of layout.edges) {
+      const a = positions.get(edge.from), b = positions.get(edge.to);
+      const x1 = a.x + (vertical ? layout.cardWidth / 2 : layout.cardWidth), y1 = a.y + (vertical ? layout.cardHeight : layout.cardHeight / 2);
+      const x2 = b.x + (vertical ? layout.cardWidth / 2 : 0), y2 = b.y + (vertical ? 0 : layout.cardHeight / 2);
+      const path = svg("path", {d: vertical ? `M${x1},${y1} C${x1},${(y1+y2)/2} ${x2},${(y1+y2)/2} ${x2},${y2}` : `M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2},${y2}`});
+      path.append(elementSvgTitle(index[edge.to].field)); edges.append(path);
+    }
+    scene.append(edges);
+    for (const position of layout.nodes) {
+      const item = index[position.id], node = item.node, label = PolyglotWorkspace.astLabel(node);
+      const card = element("div", undefined, "ast-node-card"); card.dataset.kind = node.kind; card.dataset.astId = item.id;
+      card.style.left = `${position.x}px`; card.style.top = `${position.y}px`; attachSource(card, node.span);
+      const select = element("button", undefined, "ast-select"); select.type = "button";
+      select.setAttribute("aria-label", `${node.kind} ${label}${node.span?.line ? `, source line ${node.span.line}` : ""}`);
+      select.title = `${node.kind}: ${label}${node.meta?.type ? ` (${node.meta.type})` : ""}${item.field ? ` · ${item.field}` : ""}`;
+      select.append(element("span", node.kind, "ast-node-kind"), element("span", label, "ast-node-value"),
+        element("span", `${node.meta?.type || item.field || "root"}${node.span?.line ? ` · L${node.span.line}` : ""}`, "ast-node-detail"));
+      select.addEventListener("click", () => {
+        if (inspectionMatchesSource && node.span) { if (expandedView) setExpanded(false); navigateSource(node.span); }
+      });
+      card.append(select);
+      if (item.children.length) {
+        const toggle = element("button", undefined, "ast-branch"); toggle.type = "button";
+        toggle.append(glyph("caret-right")); toggle.setAttribute("aria-expanded", String(expanded.has(item.id)));
+        toggle.setAttribute("aria-label", `${expanded.has(item.id) ? "Collapse" : "Expand"} children of ${node.kind} ${label}`);
+        toggle.title = `${item.children.length} child nodes`;
+        toggle.addEventListener("click", () => { expanded.has(item.id) ? expanded.delete(item.id) : expanded.add(item.id); draw(item.id); });
+        card.append(toggle);
+      }
+      scene.append(card);
+    }
+    count.textContent = `${layout.nodes.length} / ${index[root].size} nodes${layout.truncated ? " · view limited to 250" : ""}`;
+    if (fitMode) fitGraph(fitMode); else applyZoom(zoom, false);
+    updateInspectionFocus();
+    if (focusId !== null) {
+      const position = positions.get(focusId);
+      if (position) {
+        viewport.scrollLeft = (position.x + layout.cardWidth / 2) * zoom - viewport.clientWidth / 2;
+        viewport.scrollTop = (position.y + layout.cardHeight / 2) * zoom - viewport.clientHeight / 2;
+      }
+      const card = [...scene.querySelectorAll(".ast-node-card")].find(node => Number(node.dataset.astId) === focusId);
+      card?.querySelector(".ast-branch")?.focus({preventScroll:true});
+    }
+  }
+  function elementSvgTitle(text) { const title = svg("title"); title.textContent = text; return title; }
+  focus.addEventListener("change", () => { root = Number(focus.value); expanded = new Set([root]); fitMode = "width"; draw(); });
+  orientation.addEventListener("click", () => {
+    vertical = !vertical; orientation.textContent = vertical ? "Left to right" : "Top to bottom";
+    orientation.setAttribute("aria-label", vertical ? "Use left-to-right tree layout" : "Use top-to-bottom tree layout"); draw();
+  });
+  expand.addEventListener("click", () => { expanded = new Set(index.map(node => node.id)); draw(); });
+  collapse.addEventListener("click", () => { expanded = new Set([root]); draw(); });
+  zoomOut.addEventListener("click", () => { fitMode = null; applyZoom(zoom - .15); });
+  zoomIn.addEventListener("click", () => { fitMode = null; applyZoom(zoom + .15); });
+  fit.addEventListener("click", () => { fitMode = "all"; fitGraph(); });
+  reset.addEventListener("click", () => { fitMode = null; applyZoom(1); });
+  function setExpanded(next) {
+    expandedView = next; view.classList.toggle("ast-view-expanded", next); document.body.classList.toggle("ast-expanded", next);
+    enlarge.textContent = next ? "Restore view" : "Expand view";
+    enlarge.setAttribute("aria-label", next ? "Restore tree view" : "Expand tree view"); enlarge.setAttribute("aria-pressed", String(next));
+    if (fitMode) fitGraph(fitMode); else applyZoom(zoom, false);
+  }
+  enlarge.addEventListener("click", () => setExpanded(!expandedView));
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape" && expandedView) { event.preventDefault(); setExpanded(false); enlarge.focus(); }
+  }, {signal: controller.signal});
+  viewport.addEventListener("pointerdown", event => {
+    if (event.button !== 0 || event.target.closest("button")) return;
+    pan = {id:event.pointerId,x:event.clientX,y:event.clientY,left:viewport.scrollLeft,top:viewport.scrollTop};
+    viewport.setPointerCapture(event.pointerId); viewport.classList.add("ast-panning"); event.preventDefault();
+  });
+  viewport.addEventListener("pointermove", event => {
+    if (pan?.id !== event.pointerId) return;
+    viewport.scrollLeft = pan.left - event.clientX + pan.x; viewport.scrollTop = pan.top - event.clientY + pan.y;
+  });
+  function stopPan(event) {
+    if (event?.pointerId !== undefined && pan?.id !== event.pointerId) return;
+    const previous = pan; pan = null; viewport.classList.remove("ast-panning");
+    if (previous && viewport.hasPointerCapture(previous.id)) viewport.releasePointerCapture(previous.id);
+  }
+  for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) viewport.addEventListener(name, stopPan);
+  window.addEventListener("blur", () => stopPan(), {signal:controller.signal});
+  const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => { if (fitMode) fitGraph(fitMode); else applyZoom(zoom, false); }) : null;
+  observer?.observe(viewport);
+  graphCleanup = () => { controller.abort(); observer?.disconnect(); stopPan(); document.body.classList.remove("ast-expanded"); };
+  draw();
+}
+
 function renderStage(parent, stage, data) {
   const table = PolyglotWorkspace.tableData(stage, data);
   if (table) { renderTable(parent, table.headers, table.rows, table.locations); return; }
-  if (stage === "ast") { renderTree(parent, "Program", data); return; }
+  if (stage === "ast") {
+    if (astPresentation === "diagram") renderAstDiagram(parent, data);
+    else {
+      const diagram = element("button", "Show connected tree", "stage-more");
+      diagram.addEventListener("click", () => { astPresentation = "diagram"; showStage(); }); parent.append(diagram);
+      renderTree(parent, "Program", data);
+    }
+    return;
+  }
   if (stage === "ir" || stage === "bytecode") {
     const functions = stage === "ir" ? data : data.functions;
     if (stage === "bytecode") {
@@ -659,10 +873,12 @@ function renderStage(parent, stage, data) {
   }
 }
 function showStage() {
+  graphCleanup?.(); graphCleanup = null;
   const available = stages[selectedStage] !== undefined;
   const compiled = Object.keys(stages).length > 0;
   const panel = $("stage-data"); panel.replaceChildren();
   panel.dataset.raw = String(rawStage);
+  panel.classList.toggle("ast-graph-panel", available && selectedStage === "ast" && !rawStage && astPresentation === "diagram");
   if (available) {
     if (rawStage) panel.append(element("pre", JSON.stringify(stages[selectedStage], null, 2), "stage-json"));
     else renderStage(panel, selectedStage, stages[selectedStage]);

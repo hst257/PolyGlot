@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const {Workspace: {readDraft, saveDraft, sourceRange, tableData}} = require('../../src/polyglot/web/static/app.js');
+const {Workspace: {readDraft, saveDraft, sourceRange, tableData, astIndex, astLayout, astLabel}} = require('../../src/polyglot/web/static/app.js');
 
 function memoryStorage() {
   const data = new Map();
@@ -78,4 +78,48 @@ test('source navigation preserves complete multiline spans and Unicode end colum
   const source = 'def f():\n    print("😀")\n    return 1\n';
   const range = sourceRange(source, {line:1,column:1,end_line:3,end_column:13});
   assert.equal(source.slice(range.start,range.end), 'def f():\n    print("😀")\n    return 1');
+});
+
+function astNode(kind, data = {}, extra = {}) { return {kind, data, ...extra}; }
+const expressionTree = () => astNode('Program', {body:[astNode('Assign', {name:'x', value:astNode('Binary', {op:'+', left:astNode('Literal',{value:1}), right:astNode('Literal',{value:2})})})]});
+
+test('AST indexing follows actual semantic children and excludes metadata', () => {
+  const tree = expressionTree(); tree.meta = {fake:astNode('NotAChild')};
+  const index = astIndex(tree);
+  assert.deepEqual(index.map(item => item.node.kind), ['Program','Assign','Binary','Literal','Literal']);
+  assert.deepEqual(index[2].children, [3,4]);
+  assert.equal(index[3].field, 'left'); assert.equal(index[4].field, 'right');
+  assert.equal(astLabel(index[2].node), '+'); assert.equal(astLabel(index[3].node), '1');
+  assert.equal(tree.data.body[0].data.value.data.left.data.value, 1);
+});
+
+test('branch wrapper objects preserve genuine AST relationships and field labels', () => {
+  const tree = astNode('If',{branches:[{condition:astNode('Name',{name:'ready'}),body:astNode('Block',{body:[]})}],else_body:astNode('Block',{body:[]})});
+  const index = astIndex(tree);
+  assert.deepEqual(index[0].children, [1,2,3]);
+  assert.equal(index[1].field, 'branches[0].condition');
+  assert.equal(index[2].field, 'branches[0].body');
+});
+
+test('tree layout has one parent edge per visible child and no overlapping cards', () => {
+  const index = astIndex(expressionTree());
+  for (const vertical of [false,true]) {
+    const layout = astLayout(index,0,new Set(index.map(item => item.id)),vertical);
+    assert.equal(layout.edges.length,layout.nodes.length-1);
+    assert.deepEqual(layout.edges.map(edge=>[edge.from,edge.to]),[[0,1],[1,2],[2,3],[2,4]]);
+    for (let a=0;a<layout.nodes.length;a++) for(let b=a+1;b<layout.nodes.length;b++) {
+      const x=layout.nodes[a],y=layout.nodes[b];
+      assert.ok(x.x+layout.cardWidth<=y.x || y.x+layout.cardWidth<=x.x || x.y+layout.cardHeight<=y.y || y.y+layout.cardHeight<=x.y);
+    }
+  }
+});
+
+test('collapsed branches and rendering limits never invent or orphan nodes', () => {
+  const index = astIndex(expressionTree());
+  const collapsed=astLayout(index,0,new Set([0]));
+  assert.deepEqual(collapsed.nodes.map(n=>n.id),[0,1]);
+  const limited=astLayout(index,0,new Set(index.map(n=>n.id)),false,3);
+  assert.equal(limited.truncated,true); assert.equal(limited.nodes.length,3);
+  const visible=new Set(limited.nodes.map(n=>n.id));
+  assert.ok(limited.edges.every(edge=>visible.has(edge.from)&&visible.has(edge.to)));
 });

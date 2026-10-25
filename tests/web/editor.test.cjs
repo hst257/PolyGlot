@@ -117,7 +117,7 @@ test('all readable views and raw JSON use actual compiler data and safe text nod
     ui.get('stage-format').click(); assert.ok(JSON.parse(ui.get('stage-data').textContent));
     ui.get('stage-format').click(); assert.ok(ui.get('stage-data').querySelector('table'));
   }
-  ui.get('tab-ast').click(); assert.ok(ui.get('stage-data').querySelector('details'));
+  ui.get('tab-ast').click(); assert.ok(ui.get('stage-data').querySelector('.ast-edges path'));
   ui.input('editor', 'print("<img src=x onerror=alert(1)>")\n'); ui.get('run').click(); await turn();
   ui.get('tab-tokens').click(); assert.equal(ui.document.querySelectorAll('img').length, 0);
   assert.match(ui.get('stage-data').textContent, /<img src=x/); ui.close();
@@ -197,9 +197,11 @@ test('compiler records navigate to source and source selection highlights matchi
   assert.equal(ui.get('editor').value.slice(ui.get('editor').selectionStart, ui.get('editor').selectionEnd), 'total');
   assert.equal(ui.get('stage-data').querySelectorAll('.source-match').length, 1);
   ui.get('tab-ast').click();
-  assert.equal(ui.get('stage-data').querySelector('.node-kind').textContent, 'Program');
-  const functionLink = [...ui.get('stage-data').querySelectorAll('.source-link')].find(button => button.getAttribute('aria-label') === 'Go to source line 3, column 1');
-  assert.ok(functionLink); functionLink.click();
+  assert.equal(ui.get('stage-data').querySelector('.ast-node-kind').textContent, 'Program');
+  const functionLink = [...ui.get('stage-data').querySelectorAll('.ast-select')].find(button => button.getAttribute('aria-label') === 'Function add, source line 3');
+  assert.ok(functionLink);
+  ui.get('stage-data').querySelector('button[aria-label="Expand tree view"]').click();
+  functionLink.click(); assert.equal(ui.document.body.classList.contains('ast-expanded'),false);
   const selected = ui.get('editor').value.slice(ui.get('editor').selectionStart, ui.get('editor').selectionEnd);
   assert.match(selected, /^int add/); assert.match(selected, /return a \+ b/); ui.close();
 });
@@ -242,4 +244,52 @@ test('focus mode restores source, selection and docked output without recreating
   assert.equal(ui.document.body.classList.contains('editor-maximized'), false);
   assert.equal(ui.get('editor'), editor); assert.equal(editor.value, source);
   assert.equal(editor.selectionStart, 3); assert.equal(editor.selectionEnd, 12); ui.close();
+});
+
+test('AST defaults to connected nodes and expansion matches the real compiler tree', async () => {
+  const ui=await workspace(); ui.get('check').click(); await turn(); ui.get('tab-ast').click();
+  const panel=ui.get('stage-data');
+  const cards=()=>[...panel.querySelectorAll('.ast-node-card')];
+  assert.equal(cards()[0].querySelector('.ast-node-kind').textContent,'Program');
+  assert.equal(panel.querySelectorAll('.ast-edges path').length,cards().length-1);
+  const initial=cards().length;
+  [...panel.querySelectorAll('button')].find(b=>b.textContent==='Expand all').click();
+  assert.ok(cards().length>initial);
+  assert.equal(panel.querySelectorAll('.ast-edges path').length,cards().length-1);
+  assert.ok(cards().some(card=>card.dataset.kind==='Binary'));
+  [...panel.querySelectorAll('button')].find(b=>b.textContent==='Collapse all').click();
+  assert.equal(cards().length,initial); ui.close();
+});
+
+test('AST focus, branch controls and orientation preserve real node data', async () => {
+  const ui=await workspace(); ui.input('editor','x = 1 + 2\n'); ui.get('check').click(); await turn(); ui.get('tab-ast').click();
+  const panel=ui.get('stage-data');
+  panel.querySelector('button[aria-label="Expand children of Assign x"]').click();
+  assert.ok(panel.querySelector('[data-kind="Binary"]'));
+  panel.querySelector('button[aria-label="Expand children of Binary +"]').click();
+  assert.equal(panel.querySelectorAll('[data-kind="Literal"]').length,2);
+  panel.querySelector('button[aria-label="Use top-to-bottom tree layout"]').click();
+  assert.ok(panel.querySelector('button[aria-label="Use left-to-right tree layout"]'));
+  const focus=panel.querySelector('select'); focus.value='1'; focus.dispatchEvent(new ui.window.Event('change'));
+  assert.equal(panel.querySelector('.ast-node-kind').textContent,'Assign');
+  assert.equal(ui.get('editor').value,'x = 1 + 2\n'); ui.close();
+});
+
+test('AST zoom, expanded canvas, outline and raw JSON retain their controls and clean up', async () => {
+  const ui=await workspace(); ui.get('check').click(); await turn(); ui.get('tab-ast').click();
+  const panel=ui.get('stage-data');
+  panel.querySelector('button[aria-label="Zoom out syntax tree"]').click();
+  assert.equal(panel.querySelector('.ast-zoom').textContent,'85%');
+  panel.querySelector('button[aria-label="Expand tree view"]').click();
+  assert.ok(ui.document.body.classList.contains('ast-expanded'));
+  ui.document.dispatchEvent(new ui.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
+  assert.equal(ui.document.body.classList.contains('ast-expanded'),false);
+  [...panel.querySelectorAll('button')].find(b=>b.textContent==='Outline').click();
+  assert.ok(panel.querySelector('details'));
+  [...panel.querySelectorAll('button')].find(b=>b.textContent==='Show connected tree').click();
+  assert.ok(panel.querySelector('.ast-edges path'));
+  ui.get('stage-format').click(); const raw=JSON.parse(panel.textContent); assert.equal(raw.kind,'Program');
+  ui.get('stage-format').click(); assert.ok(panel.querySelector('.ast-edges path'));
+  panel.querySelector('button[aria-label="Expand tree view"]').click(); ui.get('tab-tokens').click();
+  assert.equal(ui.document.body.classList.contains('ast-expanded'),false); ui.close();
 });
