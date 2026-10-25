@@ -77,8 +77,16 @@
       <div><h2>Source editor</h2><p>Write, check and run your program.</p></div>
       <span class="file-type">.poly</span>
     </div>
+    <section hidden role="region" id="replace-source-dialog" aria-labelledby="replace-source-title" aria-describedby="replace-source-help">
+      <h2 id="replace-source-title">Replace your edited program?</h2>
+      <p id="replace-source-help">Choose Keep editing to return to your work. Use Save source to download it before loading another program.</p>
+      <div class="dialog-actions">
+        <button id="keep-source" type="button">Keep editing</button>
+        <button id="replace-source" type="button" class="primary">Replace program</button>
+      </div>
+    </section>
     <div class="toolbar">
-      <div class="filename-field"><svg class="icon" aria-hidden="true"><use href="#ph-file-code"></use></svg><label class="sr-only" for="filename">Source filename</label><input id="filename" value="program.poly" aria-label="Source filename"></div>
+      <div class="filename-field"><svg class="icon" aria-hidden="true"><use href="#ph-file-code"></use></svg><label class="sr-only" for="filename">Source filename</label><input id="filename" maxlength="256" value="program.poly" aria-label="Source filename"></div>
       <div class="actions">
         <button id="check" data-operation="check"><svg class="icon" aria-hidden="true"><use href="#ph-check-circle"></use></svg>Check</button>
         <button id="build" data-operation="build"><svg class="icon" aria-hidden="true"><use href="#ph-package"></use></svg>Build .pbc</button>
@@ -94,7 +102,7 @@
         <textarea id="editor" aria-label="Program source" spellcheck="false" wrap="off" autocapitalize="off" autocomplete="off" autocorrect="off" aria-describedby="editor-help"></textarea>
       </div>
     </div>
-    <div class="editor-footer"><span id="position">Line 1, column 1</span><span id="editor-help">4 spaces <span class="footer-separator" aria-hidden="true">/</span> UTF-8</span></div>
+    <div class="editor-footer"><span id="position">Line 1, column 1</span><span id="draft-status" role="status">Draft recovery ready</span><span id="editor-help">4 spaces <span class="footer-separator" aria-hidden="true">/</span> UTF-8</span></div>
     <div id="output-resizer" role="separator" tabindex="0" aria-label="Resize program output" aria-orientation="horizontal" aria-controls="program-console" aria-valuemin="96" aria-valuemax="400" aria-valuenow="220" aria-describedby="resize-help" hidden><span aria-hidden="true"></span></div>
     <span id="resize-help" class="sr-only" hidden>Drag or use Up and Down arrows to resize output. Home minimizes output; End maximizes it.</span>
     <section id="program-console" class="console" aria-labelledby="output-heading">
@@ -116,12 +124,13 @@
       <button id="tab-ir" role="tab" data-stage="ir" aria-controls="stage-data" aria-selected="false" tabindex="-1">IR</button>
       <button id="tab-bytecode" role="tab" data-stage="bytecode" aria-controls="stage-data" aria-selected="false" tabindex="-1">Bytecode</button>
     </div>
-    <div class="stage-caption"><span id="stage-title">Syntax recognition</span><span id="stage-state">Awaiting compilation</span></div>
-    <pre id="stage-data" role="tabpanel" aria-labelledby="tab-recognition" tabindex="0" data-empty="true">Compile a program to inspect its stages.</pre>
+    <div class="stage-caption"><span id="stage-title">Syntax recognition</span><span id="stage-state">Awaiting compilation</span><button id="stage-format" aria-pressed="false" disabled>Raw JSON</button></div>
+    <div id="stage-data" role="tabpanel" aria-labelledby="tab-recognition" tabindex="0" data-empty="true">Compile a program to inspect its stages.</div>
     <p class="inspector-footnote"><svg class="icon" aria-hidden="true"><use href="#ph-brackets-curly"></use></svg>Actual data from your compilation.</p>
   </section>
 </main>
 <footer class="app-footer"><span>Source <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> Tokens <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> AST <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> Semantics <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> IR <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> Bytecode <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> VM</span><span>Runs on your computer</span></footer>
+
 <script src="/app.js"></script>
 </body>
 </html>

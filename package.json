@@ -1,0 +1,7 @@
+{
+  "name": "polyglot-editor-tests",
+  "private": true,
+  "description": "Optional development-only tests for the offline Polyglot editor",
+  "scripts": {"test": "node --test tests/web/*.test.cjs"},
+  "devDependencies": {"jsdom": "30.1.3"}
+}

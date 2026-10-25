@@ -118,3 +118,19 @@ Preview: [maximized editor](ui-maximized.png), [light theme](ui-maximized-light.
 Optional BASIC labels/GOTO, benchmarks, optimization and advanced recovery remain deferred. The implemented P1 spellings are documented subsets with shared Polyglot semantics, including mandatory annotations for JavaScript-style functions and literal `printf` formats limited to `%d`, `%f`, `%s` and `%%`. Optional editable package installation was not verified: the system Python lacked wheel tooling. The dependency-free source-tree launcher was verified instead.
 
 Rehearsal and clean setup on the actual October 19 demonstration laptop remain a release task. The implementation uses only local browser assets; no claim is made that operating-system network access was physically disabled during these checks.
+
+## Local editor reliability update — October 25, 2026
+
+The local update adds browser draft recovery, explicit replacement controls for edited source, revision-aware diagnostic links (including Unicode columns), and readable compiler inspection views with a Raw JSON toggle. Tables paginate and AST children expand on demand. The compiler, server, worker and artifact format are unchanged.
+
+Verification:
+
+- Full Python regression suite: **259 passed** on Python 3.14.6, including the real loopback HTTP tests.
+- Frontend suite: **32 passed** on Node 24.18.0. The optional jsdom development dependency is locked, and a clean `npm ci` followed by `npm test` passed. Running the application does not require Node or npm packages.
+- The nine editor interaction tests run the actual frontend against real Python compiler responses. They cover empty/Unicode draft restoration, replacement/cancel/Escape, a delayed example catalog, diagnostic spans and invalidation, stale asynchronous results, every inspection stage and Raw JSON, safe rendering of HTML-like source, token-table pagination, unavailable storage and unchanged older tabs.
+- Live in-app browser checks confirmed mixed-demo output, local draft restoration after refresh, readable recognition/tokens/symbols/AST/IR/bytecode, and the Raw JSON toggle. A browser-native confirmation used during an intermediate test blocked further native clicks; the final replacement controls are an inline, keyboard-accessible region and are covered by the interaction tests. Final physical pointer/touch and responsive checks are not claimed.
+- JavaScript syntax and diff whitespace checks passed.
+
+Drafts are local to the browser and server origin and retain the current program only. Saving source to a file remains the durable export. Concurrent edited tabs use the most recently saved draft; an unchanged older tab does not overwrite it merely by closing.
+
+This update is local only; no GitHub push was performed.

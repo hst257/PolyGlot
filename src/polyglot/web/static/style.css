@@ -155,7 +155,7 @@ kbd { font: 10px var(--mono); }
 .stage-caption { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px; background: var(--surface-subtle); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 10px 16px; font-size: 10px; }
 #stage-title { font-weight: 600; }
 #stage-state { color: var(--muted); font-size: 9px; }
-#stage-data { height: clamp(425px, 63dvh, 740px); margin: 0; padding: 18px 16px; overflow: auto; background: var(--surface-subtle); color: var(--ink); font: 11px/1.8 var(--mono); white-space: pre; tab-size: 2; }
+#stage-data { height: clamp(425px, 63dvh, 740px); margin: 0; padding: 18px 16px; overflow: auto; background: var(--surface-subtle); color: var(--ink); font: 11px/1.8 var(--mono); white-space: normal; tab-size: 2; }
 #stage-data[data-empty="true"] { white-space: pre-wrap; color: var(--muted); }
 .inspector-footnote { display: flex; align-items: center; gap: 7px; padding: 12px 16px; margin: 0; border-top: 1px solid var(--line); font-size: 10px; color: var(--muted); }
 .inspector-footnote .icon { width: 15px; height: 15px; }
@@ -234,3 +234,32 @@ body.resizing-output, .resizing-output * { cursor: row-resize !important; user-s
   .app-footer > span:last-child { display: none; }
   .app-footer > span:first-child { flex-wrap: wrap; gap: 4px; font-size: 9px; }
 }
+
+/* Compiler views share the workspace palette and retain native keyboard controls. */
+#stage-format { min-height: 28px; padding: 4px 8px; font-size: 10px; }
+#draft-status { text-align: center; }
+.editor-footer { flex-wrap: wrap; }
+.stage-json { margin: 0; font: inherit; white-space: pre; }
+.stage-table { border-collapse: collapse; min-width: 100%; text-align: left; font: inherit; }
+.stage-table caption { text-align: left; color: var(--muted); padding-bottom: 10px; }
+.stage-table th, .stage-table td { padding: 7px 9px; border-bottom: 1px solid var(--line); vertical-align: top; max-width: 340px; overflow-wrap: anywhere; }
+.stage-table th { color: var(--muted); font-weight: 500; }
+.stage-table td { white-space: pre-wrap; }
+.stage-table tbody tr:hover { background: var(--surface-active); }
+.tree-node, .function-view { margin: 0 0 12px; }
+.tree-node summary, .function-view summary { cursor: pointer; padding: 5px 0; overflow-wrap: anywhere; }
+.tree-children { border-left: 1px solid var(--line); margin: 4px 0 0 5px; padding-left: 12px; }
+.tree-value { padding: 3px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.stage-more { margin: 12px 0; font-size: 11px; }
+.stage-more[hidden] { display: none; }
+.stage-explanation { color: var(--muted); margin: 0 0 12px; }
+.diagnostic:disabled { opacity: 1; cursor: default; }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+#replace-source-dialog { margin: 12px 16px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--surface); }
+#replace-source-dialog[hidden] { display: none; }
+#replace-source-dialog h2 { margin: 0 0 12px; font-size: 18px; }
+#replace-source-dialog p { color: var(--muted); font-size: 13px; line-height: 1.7; }
+.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+.editor-maximized #replace-source-dialog { position: fixed; z-index: 10; top: 60px; right: 16px; max-width: min(420px, calc(100vw - 64px)); }

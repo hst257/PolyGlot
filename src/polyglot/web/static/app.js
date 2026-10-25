@@ -1,4 +1,56 @@
 "use strict";
+// Workspace helpers are shared with the dependency-free Node regression tests.
+const PolyglotWorkspace = (() => {
+  const DRAFT_KEY = "polyglot-draft-v1";
+  function readDraft(storage) {
+    try {
+      const draft = JSON.parse(storage.getItem(DRAFT_KEY));
+      if (draft?.version !== 1 || typeof draft.source !== "string" || draft.source.length > 262144 ||
+          typeof draft.filename !== "string" || draft.filename.length > 256) return null;
+      return draft;
+    } catch { return null; }
+  }
+  function saveDraft(storage, source, filename) {
+    try {
+      if (source.length > 262144 || filename.length > 256) return false;
+      storage.setItem(DRAFT_KEY, JSON.stringify({version: 1, source, filename, savedAt: Date.now()}));
+      return true;
+    } catch { return false; }
+  }
+  function sourceRange(source, location = {}) {
+    // Compiler columns count Unicode code points; textarea offsets count UTF-16 units.
+    const lines = source.split("\n");
+    const line = Math.max(1, Math.min(lines.length, location.line || 1));
+    const offset = lines.slice(0, line - 1).reduce((n, text) => n + text.length + 1, 0);
+    const column = Math.max(0, (location.column || 1) - 1);
+    const text = lines[line - 1];
+    const start = offset + Array.from(text).slice(0, column).join("").length;
+    const endColumn = location.end_line === line ? Math.max(column + 1, (location.end_column || column + 2) - 1) : column + 1;
+    const end = offset + Array.from(text).slice(0, endColumn).join("").length;
+    return {start, end: Math.max(start, end), line};
+  }
+  const valueText = value => typeof value === "string" ? value : JSON.stringify(value) ?? "—";
+  const at = location => location ? `${location.line}:${location.column}` : "—";
+  function tableData(stage, data) {
+    if (stage === "tokens") return {
+      headers: ["Token", "Text", "Position"],
+      rows: data.map(t => [t.kind, JSON.stringify(t.text), at(t.span)])
+    };
+    if (stage === "recognition") return {
+      headers: ["Syntax", "Rule", "Position"],
+      rows: data.map(r => [r.candidates?.length ? r.candidates.join(" / ") : r.family,
+        r.grammar_rule, at(r.span)])
+    };
+    if (stage === "symbols") return {
+      headers: ["Name", "Type", "Binding", "Scope", "Storage"],
+      rows: data.map(s => [s.name, s.storage === "function" ? `(${s.params.join(", ")}) → ${s.type}` : s.type,
+        s.mutable ? "variable" : s.storage === "function" ? "function" : "constant", s.scope,
+        `${s.storage} ${s.slot}`])
+    };
+    return null;
+  }
+  return Object.freeze({readDraft, saveDraft, sourceRange, tableData, valueText});
+})();
 // Visual tokenization only. It never decides whether source can compile or execute.
 const PolyglotHighlight = (() => {
   const keywords = new Set(["def", "return", "if", "elif", "else", "for", "while", "break", "continue",
@@ -93,7 +145,7 @@ const PolyglotHighlight = (() => {
   }
   return Object.freeze({tokenize, bracketPairs});
 })();
-if (typeof module !== "undefined" && module.exports) module.exports = PolyglotHighlight;
+if (typeof module !== "undefined" && module.exports) module.exports = {...PolyglotHighlight, Workspace: PolyglotWorkspace};
 if (typeof document !== "undefined") {
 const $ = id => document.getElementById(id);
 const editor = $("editor");
@@ -172,6 +224,58 @@ function replaceEditorText(text, from, to, selection = "end") {
   editor.setSelectionRange(selection === "select" ? from : end, end);
 }
 let stages = {}, selectedStage = "recognition", busy = false, examples = {};
+let revision = 0, draftTimer, initialized = false, baselineSource = "", baselineFilename = "program.poly";
+let selectedExample = "", rawStage = false, draftNeedsSave = false, draftSaved = true;
+function saveDraftNow() {
+  clearTimeout(draftTimer);
+  if (!draftNeedsSave) return draftSaved;
+  let saved = false;
+  try { saved = PolyglotWorkspace.saveDraft(localStorage, editor.value, $("filename").value); } catch { /* Storage may be disabled. */ }
+  draftSaved = saved;
+  if (saved) draftNeedsSave = false;
+  $("draft-status").textContent = saved ? "Draft saved on this browser" : "Draft not saved · use Save source";
+  return saved;
+}
+function scheduleDraft() {
+  draftNeedsSave = true;
+  $("draft-status").textContent = "Saving draft…";
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraftNow, 250);
+}
+function hasEdits() { return editor.value !== baselineSource || $("filename").value !== baselineFilename; }
+let pendingReplacement = null;
+function finishReplacement(replace) {
+  $("replace-source-dialog").hidden = true;
+  const resolve = pendingReplacement; pendingReplacement = null;
+  if (resolve) resolve(replace);
+}
+function canReplaceSource() {
+  if (!hasEdits()) return Promise.resolve(true);
+  if (pendingReplacement) finishReplacement(false);
+  return new Promise(resolve => {
+    pendingReplacement = resolve;
+    $("replace-source-dialog").hidden = false;
+    $("keep-source").focus();
+  });
+}
+$("keep-source").addEventListener("click", () => finishReplacement(false));
+$("replace-source").addEventListener("click", () => finishReplacement(true));
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && pendingReplacement) { event.preventDefault(); finishReplacement(false); }
+});
+function loadSource(source, filename) {
+  editor.value = source;
+  $("filename").value = filename;
+  baselineSource = source; baselineFilename = filename;
+  initialized = true;
+  dirty();
+}
+window.addEventListener("pagehide", () => { if (initialized) saveDraftNow(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && initialized) saveDraftNow(); });
+window.addEventListener("beforeunload", event => {
+  if (initialized && !saveDraftNow() && hasEdits()) { event.preventDefault(); event.returnValue = ""; }
+});
+$("filename").addEventListener("input", dirty);
 const stageTitles = {recognition: "Syntax recognition", tokens: "Lexer tokens", ast: "Abstract syntax tree",
   symbols: "Symbols and types", ir: "Typed intermediate representation", bytecode: "VM bytecode"};
 const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
@@ -294,22 +398,123 @@ function updateEditor() {
   updateCursorDecoration(low);
   syncEditorScroll();
 }
+function element(tag, text, className) {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  if (className) node.className = className;
+  return node;
+}
+function renderTable(parent, headers, rows) {
+  const table = element("table", undefined, "stage-table");
+  const caption = element("caption", `${rows.length.toLocaleString()} ${rows.length === 1 ? "entry" : "entries"}`);
+  table.append(caption);
+  const head = element("thead"), heading = element("tr"), body = element("tbody");
+  headers.forEach(label => { const cell = element("th", label); cell.scope = "col"; heading.append(cell); });
+  head.append(heading); table.append(head, body); parent.append(table);
+  let shown = 0;
+  const more = element("button", "Show more", "stage-more");
+  const appendPage = () => {
+    const end = Math.min(shown + 200, rows.length);
+    for (; shown < end; shown++) {
+      const row = element("tr");
+      rows[shown].forEach(value => row.append(element("td", PolyglotWorkspace.valueText(value))));
+      body.append(row);
+    }
+    more.textContent = `Show next ${Math.min(200, rows.length - shown)} (${shown} of ${rows.length})`;
+    more.hidden = shown >= rows.length;
+  };
+  more.addEventListener("click", appendPage); parent.append(more); appendPage();
+}
+function renderTree(parent, key, value, depth = 0) {
+  if (value === null || typeof value !== "object") {
+    parent.append(element("div", `${key}: ${PolyglotWorkspace.valueText(value)}`, "tree-value")); return;
+  }
+  const details = element("details", undefined, "tree-node");
+  const label = value.kind || (Array.isArray(value) ? `${value.length} items` : "fields");
+  details.append(element("summary", `${key} · ${label}${value.meta?.type ? ` : ${value.meta.type}` : ""}`));
+  const children = element("div", undefined, "tree-children"); details.append(children); parent.append(details);
+  let populated = false;
+  const populate = () => {
+    if (populated || !details.open) return;
+    populated = true;
+    const entries = Object.entries(value);
+    let shown = 0;
+    const more = element("button", "Show more", "stage-more");
+    const page = () => {
+      const end = Math.min(shown + 100, entries.length);
+      for (; shown < end; shown++) renderTree(children, ...entries[shown], depth + 1);
+      more.hidden = shown >= entries.length;
+      children.append(more);
+    };
+    more.addEventListener("click", page); page();
+  };
+  details.addEventListener("toggle", populate);
+  if ((depth < 2 && !["span", "meta"].includes(key)) || (key === "body" && depth < 3)) { details.open = true; populate(); }
+}
+function renderStage(parent, stage, data) {
+  const table = PolyglotWorkspace.tableData(stage, data);
+  if (table) { renderTable(parent, table.headers, table.rows); return; }
+  if (stage === "ast") { renderTree(parent, "Program", data); return; }
+  if (stage === "ir" || stage === "bytecode") {
+    const functions = stage === "ir" ? data : data.functions;
+    if (stage === "bytecode") {
+      parent.append(element("p", `Bytecode v${data.version} · entry ${data.entry} · ${data.global_count} global slots`, "stage-explanation"));
+      const constants = element("details", undefined, "tree-node");
+      constants.append(element("summary", `Constants · ${data.constants.length}`));
+      let loaded = false;
+      constants.addEventListener("toggle", () => {
+        if (!constants.open || loaded) return;
+        loaded = true;
+        renderTable(constants, ["Index", "Type", "Value"], data.constants.map((c, i) => [i, c.type, JSON.stringify(c.value)]));
+      });
+      parent.append(constants);
+    }
+    for (const fn of functions) {
+      const details = element("details", undefined, "function-view");
+      details.append(element("summary", `${fn.name}(${fn.params.join(", ")}) → ${fn.return_type}`));
+      let loaded = false;
+      const populate = () => {
+        if (loaded || !details.open) return;
+        loaded = true;
+        const instructions = stage === "ir" ? fn.instructions : fn.code;
+        const rows = instructions.map((instruction, i) => [i, instruction.op,
+          stage === "ir" ? Object.entries(instruction).filter(([k]) => !["op", "source"].includes(k)).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(" · ") : instruction.args.map(PolyglotWorkspace.valueText).join(", "),
+          instruction.source ? `${instruction.source.line}:${instruction.source.column}` : "—"]);
+        renderTable(details, ["#", "Instruction", "Operands", "Position"], rows);
+      };
+      details.addEventListener("toggle", populate); parent.append(details);
+      if (fn === functions[0]) { details.open = true; populate(); }
+    }
+  }
+}
 function showStage() {
   const available = stages[selectedStage] !== undefined;
   const compiled = Object.keys(stages).length > 0;
-  $("stage-data").textContent = available ? JSON.stringify(stages[selectedStage], null, 2) : compiled ?
-    "This stage is not available. Compile valid source to inspect it." : "Check or run a program to inspect its stages.";
-  $("stage-data").dataset.empty = String(!available);
-  $("stage-data").setAttribute("aria-labelledby", `tab-${selectedStage}`);
+  const panel = $("stage-data"); panel.replaceChildren();
+  panel.dataset.raw = String(rawStage);
+  if (available) {
+    if (rawStage) panel.append(element("pre", JSON.stringify(stages[selectedStage], null, 2), "stage-json"));
+    else renderStage(panel, selectedStage, stages[selectedStage]);
+  } else panel.textContent = compiled ? "This stage is not available. Fix the reported error to continue." : "Check or run a program to inspect its stages.";
+  panel.dataset.empty = String(!available);
+  panel.setAttribute("aria-labelledby", `tab-${selectedStage}`);
   $("stage-title").textContent = stageTitles[selectedStage];
   $("stage-state").textContent = available ? "Available" : compiled ? "Not available" : "Awaiting compilation";
+  $("stage-format").disabled = !available;
+  $("stage-format").textContent = rawStage ? "Readable view" : "Raw JSON";
+  $("stage-format").setAttribute("aria-pressed", String(rawStage));
 }
+$("stage-format").addEventListener("click", () => { rawStage = !rawStage; showStage(); });
 function dirty() {
+  initialized = true; revision++;
   sourcePane.classList.remove("compiler-error");
+  $("diagnostics").replaceChildren();
+  $("execution-info").textContent = "";
   stages = {};
   showStage();
   setStatus("Source changed", "changed");
   updateEditor();
+  scheduleDraft();
 }
 function diagnosticText(d) {
   const p = d.location || {};
@@ -323,33 +528,33 @@ async function action(operation, extra = {}) {
   $("workbench").setAttribute("aria-busy", "true");
   setStatus(operation === "run" || operation === "exec" ? "Running…" : "Compiling…", "busy");
   $("diagnostics").replaceChildren();
-  const sourceAtStart = editor.value;
+  const sourceAtStart = editor.value, filenameAtStart = $("filename").value, revisionAtStart = revision;
   try {
-    const response = await fetch(`/api/${operation}`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({source:sourceAtStart, filename:$("filename").value, ...extra})});
+    const response = await fetch(`/api/${operation}`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({source:sourceAtStart, filename:filenameAtStart, ...extra})});
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Request failed");
-    stages = sourceAtStart === editor.value ? result.stages || {} : {};
-    sourcePane.classList.toggle("compiler-error", operation !== "exec" && sourceAtStart === editor.value && !result.ok);
+    stages = revisionAtStart === revision ? result.stages || {} : {};
+    sourcePane.classList.toggle("compiler-error", operation !== "exec" && revisionAtStart === revision && !result.ok);
     showStage();
-    setStatus(sourceAtStart !== editor.value ? "Source changed during compilation" : result.ok ? "Successful" : "Stopped with an error",
-      sourceAtStart !== editor.value ? "changed" : result.ok ? "success" : "error");
+    setStatus(revisionAtStart !== revision ? "Source changed during compilation" : result.ok ? "Successful" : "Stopped with an error",
+      revisionAtStart !== revision ? "changed" : result.ok ? "success" : "error");
     $("output").textContent = result.output || (result.ok ? operation === "run" || operation === "exec" ? "Program finished with no output." : "Compilation successful." : "Execution stopped.");
     $("output").dataset.empty = String(!result.output);
     $("execution-info").textContent = result.steps ? `${result.steps.toLocaleString()} VM instructions` : "";
-    for (const d of result.diagnostics || []) {
+    for (const d of revisionAtStart === revision ? result.diagnostics || [] : []) {
       const item = document.createElement("button");
       item.className = "diagnostic";
       item.textContent = diagnosticText(d);
+      item.disabled = operation === "exec";
       item.addEventListener("click", () => {
-        if (operation === "exec") return;
-        const line = d.location?.line || 1, column = d.location?.column || 1;
-        const offset = editor.value.split("\n").slice(0, line - 1).reduce((n, s) => n + s.length + 1, 0) + column - 1;
-        editor.focus(); editor.setSelectionRange(offset, offset + 1);
-        editor.scrollTop = Math.max(0, (line - 3) * 24); updateEditor();
+        if (operation === "exec" || revisionAtStart !== revision) return;
+        const range = PolyglotWorkspace.sourceRange(editor.value, d.location);
+        editor.focus(); editor.setSelectionRange(range.start, range.end);
+        editor.scrollTop = Math.max(0, (range.line - 3) * 24); updateEditor();
       });
       $("diagnostics").append(item);
     }
-    if (operation === "build" && result.ok) download(result.artifact_text, $("filename").value.replace(/\.[^.]*$/, "") + ".pbc", "application/json");
+    if (operation === "build" && result.ok) download(result.artifact_text, filenameAtStart.replace(/\.[^.]*$/, "") + ".pbc", "application/json");
   } catch (error) {
     setStatus("Connection error", "error");
     $("output").textContent = error.message;
@@ -432,23 +637,53 @@ stageTabs.forEach((button, index) => {
 });
 $("upload-source").addEventListener("click", () => $("source-file").click());
 $("upload-artifact").addEventListener("click", () => $("artifact-file").click());
-$("download-source").addEventListener("click", () => download(editor.value, $("filename").value || "program.poly"));
+$("download-source").addEventListener("click", () => {
+  download(editor.value, $("filename").value || "program.poly");
+  baselineSource = editor.value; baselineFilename = $("filename").value;
+  saveDraftNow();
+});
 $("source-file").addEventListener("change", async event => {
   const file = event.target.files[0]; if (!file) return;
   if (file.size > 131072) { setStatus("Source exceeds 128 KiB", "error"); return; }
-  editor.value = await file.text(); $("filename").value = file.name; dirty(); event.target.value = "";
+  const source = await file.text();
+  event.target.value = "";
+  if (await canReplaceSource()) loadSource(source, file.name);
 });
 $("artifact-file").addEventListener("change", async event => {
   const file = event.target.files[0]; if (!file) return;
   if (file.size > 5000000) { setStatus("Artifact exceeds 5 MB", "error"); return; }
   await action("exec", {artifact:await file.text(), filename:file.name}); event.target.value = "";
 });
-$("examples").addEventListener("change", () => {
-  editor.value = examples[$("examples").value]; $("filename").value = $("examples").value; dirty();
+$("examples").addEventListener("change", async () => {
+  const requestedExample = $("examples").value;
+  if (!await canReplaceSource()) { $("examples").value = selectedExample; return; }
+  selectedExample = requestedExample; $("examples").value = requestedExample;
+  loadSource(examples[selectedExample], selectedExample);
 });
-fetch("/api/examples").then(r => r.json()).then(data => {
+let restored = null;
+try { restored = PolyglotWorkspace.readDraft(localStorage); } catch { /* The editor works without storage. */ }
+if (restored) {
+  editor.value = restored.source; $("filename").value = restored.filename;
+  initialized = true;
+  // Restored work is treated as edited until downloaded or explicitly replaced.
+  baselineSource = ""; baselineFilename = "";
+  updateEditor();
+  $("draft-status").textContent = "Draft restored from this browser";
+  setStatus("Draft restored", "ready");
+}
+fetch("/api/examples").then(r => { if (!r.ok) throw new Error("Examples could not be loaded."); return r.json(); }).then(data => {
   examples = data;
   for (const name of Object.keys(data)) { const option = document.createElement("option"); option.value = name; option.textContent = name; $("examples").append(option); }
-  const first = Object.keys(data)[0]; editor.value = data[first]; $("filename").value = first; updateEditor();
+  if (!initialized) {
+    const first = Object.keys(data)[0];
+    if (first) { loadSource(data[first], first); selectedExample = first; setStatus("Ready"); }
+  } else {
+    $("examples").selectedIndex = -1;
+    if (Object.hasOwn(examples, $("filename").value) && editor.value === examples[$("filename").value]) {
+      selectedExample = $("filename").value; $("examples").value = selectedExample;
+      baselineSource = editor.value; baselineFilename = selectedExample;
+    }
+  }
 }).catch(error => { setStatus(error.message, "error"); });
+showStage();
 }

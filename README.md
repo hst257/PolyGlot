@@ -21,7 +21,7 @@ Open **http://127.0.0.1:8765**. Select `mixed_demo.poly` and click **Run**. The 
 done
 ```
 
-The IDE includes source editing, Check, Run, Build/download, source upload/download, bytecode upload/execution, diagnostics and actual recognition/token/AST/symbol/IR/bytecode inspection. Its editor-first workspace adapts to smaller screens, follows the system light/dark theme and offers a manual theme toggle. Official Phosphor icons are bundled locally with their MIT license.
+The IDE includes source editing, automatic local draft recovery, Check, Run, Build/download, source upload/download, bytecode upload/execution, diagnostics and actual recognition/token/AST/symbol/IR/bytecode inspection. Its editor-first workspace adapts to smaller screens, follows the system light/dark theme and offers a manual theme toggle. Official Phosphor icons are bundled locally with their MIT license.
 
 Ctrl+Enter runs; Tab/Shift+Tab indent or unindent selected lines. Backspace removes one four-space indentation level when the cursor has no selection and sits at a leading indentation boundary; elsewhere it deletes normally. Arrow keys, Home and End navigate compiler stage tabs. The entire application works offline and uses system fonts and bundled assets.
 
@@ -30,6 +30,10 @@ Click the maximize icon beside Run for an editor-only workspace with Check/Build
 The source editor uses the **Polyglot Ember** syntax palette for mixed-language keywords, types, calls, built-ins, literals, operators and comments. It retains native textarea editing, synchronized scrolling, undo/redo, active-line and matching-bracket feedback. Select `ember_demo.poly` for the supplied highlighting demonstration. Visual highlighting does not change compiler semantics.
 
 Press Ctrl+C in the server terminal to stop it. Use `serve --port 8766` if port 8765 is occupied.
+
+The editor automatically saves the current source and filename in this browser and restores them on refresh, including an intentionally empty program. A local status shows whether recovery is available; use **Save source** for a durable file. Replacing edited code with an example or uploaded source offers **Keep editing** or **Replace program**. Drafts belong to this browser and local server address; clearing browser storage removes them. Only the current draft is retained, and simultaneously editing in multiple tabs uses the latest saved draft.
+
+The compiler inspector defaults to readable recognition/token/symbol tables, an expandable AST and per-function IR/bytecode instructions. **Raw JSON** retains the complete original representations. Large tables load more rows on demand. Editing source or its filename clears old diagnostics; responses for an earlier editor revision cannot attach stale error links.
 
 ## CLI
 
@@ -61,11 +65,20 @@ python -m pip install pytest
 python -m pytest -q
 ```
 
-Frontend tokenizer tests use Node's built-in runner (development only):
+Frontend helper and tokenizer tests use Node's built-in runner (development only):
 
 ```powershell
-node --test tests/web/highlighting.test.cjs
+node --test tests/web/highlighting.test.cjs tests/web/workspace.test.cjs
 ```
+
+For the complete editor interaction suite, optionally install the development-only DOM test library (Node 22.22.2+, 24.15+, or 26+ is required by jsdom):
+
+```sh
+npm ci
+npm test
+```
+
+These tests exercise the actual editor with real compiler responses, draft recovery, replacement controls, stale diagnostics, Unicode selections, all inspection views and table pagination. Set `PYTHON` if your Python command differs from the platform default. Node packages are used only for development; running the compiler and IDE still requires only Python.
 
 Pytest uses `src/` automatically. HTTP integration tests connect only to loopback and spawn real compiler workers. In a restricted environment that forbids local sockets, run `python -m pytest -q -m "not network"`; run the complete suite in an environment that permits loopback connections.
 
