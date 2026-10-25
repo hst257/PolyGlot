@@ -1,4 +1,4 @@
-# Polyglot Ember editor
+# Theme-aware source editor
 
 ## Implementation
 
@@ -8,13 +8,13 @@ Tokenization covers keywords, implemented primitive/type aliases, function decla
 
 Strings end at a real newline; Polyglot has no supported multiline/triple-quoted strings. Block comments may span lines. Incomplete input stays readable without synthetic error markers. Deferred BASIC `THEN`/`GOTO` receive visual keyword colors only; unsupported constructs and null-like constants retain the existing compiler behavior.
 
-Error emphasis uses the Ember error color only after the compiler/VM reports an actual failure for the current source. Editing clears that emphasis; live tokenization never invents red syntax errors.
+Error emphasis uses the active theme’s error color only after the compiler/VM reports an actual failure for the current source. Editing clears that emphasis; live tokenization never invents red syntax errors.
 
 Every rendered source segment uses `textContent` or a text node. No source is parsed as HTML. The overlay has an invisible final-line sentinel; the textarea alone supplies source to Check, Run, Build and downloads.
 
 ## Editing and appearance
 
-The requested Ember palette applies only to the source area. Code uses 15px monospace with 24px line height, matching four-space tabs, an amber caret, active-line background, readable line numbers and matched-bracket backgrounds. The gutter expands for larger line counts. The page's Aether palette, Phosphor icons and panel arrangement remain intact.
+The slate workspace applies matching light/dark palettes to source and surrounding panels. Code uses 15px monospace with a 24px line height (13px text below 600px), matching four-space tabs, a blue caret, active-line background, readable line numbers and matched-bracket backgrounds. The gutter expands for larger line counts. The Ember example remains a highlighting fixture; the current theme replaces its original fixed colors. See [workspace design](ui-design.md).
 
 Normal editing has no bright focus frame. The caret and subtle current-line shading indicate focus; the error frame appears only for a real reported compiler failure.
 

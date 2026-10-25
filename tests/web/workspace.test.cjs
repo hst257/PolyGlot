@@ -73,3 +73,9 @@ test('inspector preserves literal values and distinguishes function and const bi
   assert.equal(symbols.rows[0][2], 'function');
   assert.equal(symbols.rows[1][2], 'constant');
 });
+
+test('source navigation preserves complete multiline spans and Unicode end columns', () => {
+  const source = 'def f():\n    print("😀")\n    return 1\n';
+  const range = sourceRange(source, {line:1,column:1,end_line:3,end_column:13});
+  assert.equal(source.slice(range.start,range.end), 'def f():\n    print("😀")\n    return 1');
+});

@@ -1,33 +1,39 @@
-# Workspace design
+# Slate workspace
 
-## Direction and audit
+## Direction
 
-An editor-first educational workspace, using native HTML/CSS/JavaScript. The initial redesign kept the Polyglot wordmark, green accent, operation labels, DOM integration IDs and compiler API. The earlier UI used Segoe UI/Consolas, green `#285d42`, small rounded controls and three columns. Large introductory copy competed with the editor; controls and compiler JSON lacked a clear hierarchy.
+The current interface is a compact, viewport-based IDE with a slate and blue palette. The October 25 request to redesign the workspace and change the theme supersedes the older Aether styling and geometry guidance in `DESIGN.md`; that file is retained as a historical reference.
 
-The current visual reference is the supplied [DESIGN.md](../DESIGN.md), copied without changes. Apply its Aether colors and surface treatment to Polyglot's existing UI. The user's restyling constraint takes precedence over reference instructions about composition, spacing, content or new effects: preserve the existing structure, layout and animations.
+The editor and compiler explorer share the available width instead of sitting inside large cards. A searchable program list replaces the static introduction and always-visible support information. Output is docked below the editor and remains visible during normal use. The original textarea, native editing, undo history, compiler API and offline assets are preserved.
 
-Settings: `DESIGN_VARIANCE: 5`, `MOTION_INTENSITY: 2`, `VISUAL_DENSITY: 6`. This is a product interface, so marketing-specific hero, imagery and scroll-animation rules do not apply. The textarea and its editing behavior are preserved.
+## Layout and controls
 
-The source area now uses the separately requested Polyglot Ember syntax palette and 15px/24px monospace metrics. The surrounding page continues to follow DESIGN.md. See [highlighting.md](highlighting.md) for tokenization, overlay synchronization, editing and limitations.
+- The desktop page has a 58px header, a flexible workspace and a 30px footer. Source, examples, compiler records and output scroll independently.
+- The Programs button collapses the 216px sidebar (200px on narrower desktops). Examples are searchable by their actual filenames. Language support is a disclosure at the bottom, alongside file actions.
+- The compiler explorer starts at approximately 32% of viewport width, bounded by available editor space. Its vertical separator supports pointer dragging, Left/Right, Shift for larger steps, Home and End. The editor retains at least 400px in desktop layouts.
+- The output divider supports dragging, Up/Down, Shift, Home and End in both normal and focus modes. Height bounds preserve room for editing. The output heading includes its line count and Clear action.
+- Sidebar state and divider sizes persist under `polyglot-layout-v1` when browser storage is available. Corrupted or unavailable storage falls back to usable defaults.
+- Focus mode keeps the same textarea and output, hides surrounding panels, and restores through the maximize button or Escape.
+- At 1000px and below, the inspector stacks beneath the editor and Programs opens a drawer with a backdrop. The drawer closes after loading an example. The desktop inspector width is preserved while stacked. Smaller screens retain Run, Check, Build and focus controls without page-width overflow.
 
-## Visual rules
+## Theme and typography
 
-- Dark mode uses reference amber `#F59E0B`, background `#050505`, surface `#1A1510`, white text, muted `#A1A1AA` and border `#27272A`. Main actions use reference amber with near-black text in both themes. The existing light theme uses warm neutrals and darker amber for readable accent text. Error colors express errors only.
-- Inter and JetBrains Mono are the first font choices, with the existing locally available system fallbacks. Font sizes and line heights remain unchanged to preserve layout. No remote font requests or backend changes are introduced.
-- Eight-pixel control and panel corners, square internal pane divisions. Pills are reserved for status and syntax tags.
-- Source occupies the largest pane; output sits below; real compiler stages occupy a separate inspector.
-- Light/dark tokens apply to the whole page. The initial theme follows the system; a manual toggle persists locally when storage is available.
-- Hover, press and focus feedback only. Reduced-motion preferences remove transitions.
-- Below 1024px the inspector moves below the editor; below 768px the sidebar becomes a compact top section. No horizontal page scrolling.
+Both themes use blue `#2563eb` primary actions with white text. Dark mode uses slate backgrounds (`#0b1019`, `#111925`, `#0d1420`), soft blue highlights, mint success feedback and rose errors. Light mode uses white and cool gray surfaces with darker syntax colors. The system preference remains the default and the existing manual theme selection persists.
 
-## Maximized editor
+The source editor uses 15px/24px local monospace text, with a 13px adaptation below 600px. Token categories retain their existing meaning, with theme-aware purple keywords, blue functions, teal types, green strings and warm numeric literals. Source padding and font metrics remain identical in the textarea and overlay.
 
-The toolbar's Phosphor maximize button opens a viewport-sized workbench, hiding the header, files, inspector and footer. The normal workspace layout remains available through Restore or Escape. The original textarea is reused so source, selection and native undo history survive the transition.
+Controls use compact six-pixel corners and restrained borders. Status color communicates compiler results, not decorative emphasis. Focus indicators remain visible, forced-color mode exposes native source text, and reduced-motion preferences suppress animation.
 
-A four-row CSS grid holds the toolbar, flexible editor, 10px divider and bottom output pane. Only source and console content scroll; the output heading stays visible. Pointer capture supports mouse/touch dragging, with cleanup on release, cancellation, window blur and restore. Height limits keep both panes usable and adapt on viewport changes. The focusable separator exposes its current height and supports Up/Down, Shift+Up/Down, Home and End. Execution status is also shown beside the output heading in this mode.
+## Compiler explorer
 
-## Icons and backend boundary
+Recognition, tokens and symbols use tables. IR and bytecode show collapsible functions with instruction tables. AST nodes show their actual kind, name and checked type, with children loaded on expansion. Every view retains a Raw JSON toggle with the original compiler representations. Brief descriptions explain each stage; empty states direct users to Run or Check.
 
-Official regular-weight SVGs come from `@phosphor-icons/core@2.1.1`. Originals and MIT license are in `third_party/phosphor/`. `tools/vendor_phosphor.py` regenerates the inline HTML sprite. Icons inherit text color and are hidden from assistive technology; controls retain text or accessible labels.
+Source position buttons navigate to the corresponding range, accounting for Unicode columns and multiline spans. Selecting source highlights the narrowest matching visible compiler records. Collapsed AST descendants do not hide a matching visible ancestor. Editing invalidates these records through the existing revision checks. Uploaded bytecode cannot create source-navigation links into unrelated editor text.
 
-The sprite works with the existing static-file allowlist and Content Security Policy. Server, worker, compiler, artifact format and API remain unchanged. Everyday development needs no Node installation or asset build step.
+Tables reveal 200 rows at a time, and tree collections reveal 100 children at a time. Rendering uses text nodes throughout, including source strings that resemble HTML.
+
+## Assets and backend boundary
+
+Official, regular-weight Phosphor symbols are reused from the existing inline sprite. No icon family, remote font, external asset or runtime package has been added. Originals and licenses remain in `third_party/phosphor/`. `tools/vendor_phosphor.py` regenerates the sprite.
+
+The compiler, server, worker, API and artifact format are unchanged. Node and jsdom are optional development tools for the editor interaction tests; the running app still requires only Python.

@@ -21,19 +21,19 @@ Open **http://127.0.0.1:8765**. Select `mixed_demo.poly` and click **Run**. The 
 done
 ```
 
-The IDE includes source editing, automatic local draft recovery, Check, Run, Build/download, source upload/download, bytecode upload/execution, diagnostics and actual recognition/token/AST/symbol/IR/bytecode inspection. Its editor-first workspace adapts to smaller screens, follows the system light/dark theme and offers a manual theme toggle. Official Phosphor icons are bundled locally with their MIT license.
+The IDE includes source editing, automatic local draft recovery, Check, Run, Build/download, source upload/download, bytecode upload/execution, diagnostics and actual recognition/token/AST/symbol/IR/bytecode inspection. Its slate-and-blue workspace has searchable examples, a collapsible sidebar, resizable editor/inspector panes and docked output. Both the interface and syntax highlighting follow the system light/dark theme, with a persistent manual toggle. Official Phosphor icons are bundled locally with their MIT license.
 
 Ctrl+Enter runs; Tab/Shift+Tab indent or unindent selected lines. Backspace removes one four-space indentation level when the cursor has no selection and sits at a leading indentation boundary; elsewhere it deletes normally. Arrow keys, Home and End navigate compiler stage tabs. The entire application works offline and uses system fonts and bundled assets.
 
-Click the maximize icon beside Run for an editor-only workspace with Check/Build/Run and docked program output. The editor and output scroll independently. Drag the divider up or down to resize output, or focus it and use Up/Down (Shift for larger steps), Home or End. Click Restore or press Escape to return; source, selection and undo history are preserved.
+Output stays docked beneath the editor. Drag its divider up or down, or use Up/Down (Shift for larger steps), Home or End. Drag the vertical divider to resize the compiler explorer, or use Left/Right, Home and End. The Programs button hides the searchable example sidebar. Layout sizes persist locally. Click the maximize icon beside Run for an editor-only workspace; Restore or Escape returns to the normal layout with source, selection and undo history preserved.
 
-The source editor uses the **Polyglot Ember** syntax palette for mixed-language keywords, types, calls, built-ins, literals, operators and comments. It retains native textarea editing, synchronized scrolling, undo/redo, active-line and matching-bracket feedback. Select `ember_demo.poly` for the supplied highlighting demonstration. Visual highlighting does not change compiler semantics.
+The source editor uses a **theme-aware syntax palette** for mixed-language keywords, types, calls, built-ins, literals, operators and comments. It retains native textarea editing, synchronized scrolling, undo/redo, active-line and matching-bracket feedback. Select `ember_demo.poly` for the supplied highlighting demonstration. Visual highlighting does not change compiler semantics.
 
 Press Ctrl+C in the server terminal to stop it. Use `serve --port 8766` if port 8765 is occupied.
 
 The editor automatically saves the current source and filename in this browser and restores them on refresh, including an intentionally empty program. A local status shows whether recovery is available; use **Save source** for a durable file. Replacing edited code with an example or uploaded source offers **Keep editing** or **Replace program**. Drafts belong to this browser and local server address; clearing browser storage removes them. Only the current draft is retained, and simultaneously editing in multiple tabs uses the latest saved draft.
 
-The compiler inspector defaults to readable recognition/token/symbol tables, an expandable AST and per-function IR/bytecode instructions. **Raw JSON** retains the complete original representations. Large tables load more rows on demand. Editing source or its filename clears old diagnostics; responses for an earlier editor revision cannot attach stale error links.
+The compiler explorer defaults to readable recognition/token/symbol tables, a semantic AST with node names and types, and per-function IR/bytecode instructions. Position links jump to the source; selecting code highlights matching visible compiler records. **Raw JSON** retains the complete original representations. Large tables load more rows on demand. Editing source or its filename clears old diagnostics; responses for an earlier editor revision cannot attach stale error links.
 
 ## CLI
 

@@ -23,6 +23,8 @@ async function workspace(options = {}) {
     beforeParse(window) {
       window.matchMedia = () => ({matches: false, addEventListener() {}});
       window.scrollTo = () => {};
+      if (options.layout) window.localStorage.setItem('polyglot-layout-v1', options.layout);
+      if (options.theme) window.localStorage.setItem('polyglot-theme', options.theme);
       if (options.draft) window.localStorage.setItem('polyglot-draft-v1', options.draft);
       if (options.blockedStorage) Object.defineProperty(window, 'localStorage', {get() { throw new Error('Storage disabled'); }});
       window.fetch = async (url, init) => {
@@ -145,4 +147,99 @@ test('an unchanged older tab does not overwrite a newer draft on page exit', asy
   ui.window.localStorage.setItem('polyglot-draft-v1', latest);
   ui.window.dispatchEvent(new ui.window.Event('pagehide'));
   assert.equal(ui.window.localStorage.getItem('polyglot-draft-v1'), latest); ui.close();
+});
+
+test('file search filters real examples and selecting a file updates the editor', async () => {
+  const ui = await workspace();
+  ui.input('file-search', 'array');
+  const names = [...ui.get('file-list').querySelectorAll('button')].map(button => button.dataset.example);
+  assert.deepEqual(names, ['array_iteration.poly', 'arrays_mixed.poly']);
+  ui.get('file-list').querySelector('button').click(); await turn();
+  assert.equal(ui.get('filename').value, 'array_iteration.poly');
+  assert.equal(ui.get('editor').value, examples['array_iteration.poly']);
+  assert.equal(ui.get('file-list').querySelector('[aria-current="true"]').dataset.example, 'array_iteration.poly');
+  ui.input('file-search', 'no-matching-file'); assert.match(ui.get('file-list').textContent, /No matching/); ui.close();
+});
+
+test('collapsing programs preserves source and persists the layout', async () => {
+  const ui = await workspace();
+  const source = ui.get('editor').value;
+  ui.get('sidebar-toggle').click();
+  assert.equal(ui.get('program-sidebar').hidden, true);
+  assert.equal(ui.get('sidebar-toggle').getAttribute('aria-expanded'), 'false');
+  assert.equal(ui.get('editor').value, source);
+  const layout = ui.window.localStorage.getItem('polyglot-layout-v1'); ui.close();
+  const restored = await workspace({layout}); assert.equal(restored.get('program-sidebar').hidden, true);
+  restored.get('sidebar-toggle').click(); assert.equal(restored.get('program-sidebar').hidden, false); restored.close();
+});
+
+test('both pane separators support keyboard resizing and size limits', async () => {
+  const ui = await workspace();
+  Object.defineProperty(ui.get('workbench'), 'clientHeight', {value:700});
+  const output = ui.get('output-resizer'), inspector = ui.get('workspace-resizer');
+  const before = Number(output.getAttribute('aria-valuenow'));
+  output.dispatchEvent(new ui.window.KeyboardEvent('keydown', {key:'ArrowUp', bubbles:true}));
+  assert.equal(Number(output.getAttribute('aria-valuenow')), before + 16);
+  output.dispatchEvent(new ui.window.KeyboardEvent('keydown', {key:'Home', bubbles:true}));
+  assert.equal(output.getAttribute('aria-valuenow'), output.getAttribute('aria-valuemin'));
+  inspector.dispatchEvent(new ui.window.KeyboardEvent('keydown', {key:'End', bubbles:true}));
+  assert.equal(inspector.getAttribute('aria-valuenow'), inspector.getAttribute('aria-valuemax'));
+  const layout = JSON.parse(ui.window.localStorage.getItem('polyglot-layout-v1'));
+  assert.equal(layout.outputHeight, Number(output.getAttribute('aria-valuenow'))); ui.close();
+});
+
+test('compiler records navigate to source and source selection highlights matching tokens', async () => {
+  const ui = await workspace();
+  ui.get('check').click(); await turn(); ui.get('tab-tokens').click();
+  const links = [...ui.get('stage-data').querySelectorAll('.source-link')];
+  const link = links.find(button => button.getAttribute('aria-label') === 'Go to source line 1, column 1');
+  assert.ok(link); link.click();
+  assert.equal(ui.get('editor').value.slice(ui.get('editor').selectionStart, ui.get('editor').selectionEnd), 'total');
+  assert.equal(ui.get('stage-data').querySelectorAll('.source-match').length, 1);
+  ui.get('tab-ast').click();
+  assert.equal(ui.get('stage-data').querySelector('.node-kind').textContent, 'Program');
+  const functionLink = [...ui.get('stage-data').querySelectorAll('.source-link')].find(button => button.getAttribute('aria-label') === 'Go to source line 3, column 1');
+  assert.ok(functionLink); functionLink.click();
+  const selected = ui.get('editor').value.slice(ui.get('editor').selectionStart, ui.get('editor').selectionEnd);
+  assert.match(selected, /^int add/); assert.match(selected, /return a \+ b/); ui.close();
+});
+
+test('uploaded bytecode cannot link compiler locations into unrelated editor source', async () => {
+  const ui = await workspace();
+  const artifact = compile('build', {source:'print(99)\n', filename:'other.poly'}).artifact_text;
+  Object.defineProperty(ui.get('artifact-file'), 'files', {value:[{size:artifact.length, text:async () => artifact}]});
+  ui.get('artifact-file').dispatchEvent(new ui.window.Event('change', {bubbles:true})); await turn();
+  assert.equal(ui.get('output').textContent, '99\n');
+  ui.get('tab-bytecode').click();
+  assert.equal(ui.get('stage-data').querySelectorAll('button.source-link').length, 0); ui.close();
+});
+
+test('clearing docked output keeps source and compiler inspection data', async () => {
+  const ui = await workspace(); ui.get('run').click(); await turn();
+  assert.equal(ui.get('output-count').textContent, '6');
+  ui.get('clear-output').click(); assert.equal(ui.get('output-count').textContent, '0');
+  assert.equal(ui.get('stage-data').dataset.empty, 'false');
+  assert.equal(ui.get('editor').value, examples['mixed_demo.poly']); ui.close();
+});
+
+test('light and dark theme selection survives reload without changing source', async () => {
+  const ui = await workspace(); const source = ui.get('editor').value;
+  ui.get('theme-toggle').click(); assert.equal(ui.document.documentElement.dataset.theme, 'dark');
+  assert.equal(ui.get('editor').value, source);
+  const theme = ui.window.localStorage.getItem('polyglot-theme'); ui.close();
+  const restored = await workspace({theme}); assert.equal(restored.document.documentElement.dataset.theme, 'dark');
+  restored.get('theme-toggle').click(); assert.equal(restored.document.documentElement.dataset.theme, 'light'); restored.close();
+});
+
+test('focus mode restores source, selection and docked output without recreating the editor', async () => {
+  const ui = await workspace(); const editor = ui.get('editor');
+  editor.setSelectionRange(3, 12); const source = editor.value;
+  ui.get('maximize-editor').click();
+  assert.equal(ui.document.body.classList.contains('editor-maximized'), true);
+  assert.equal(ui.get('maximize-editor').getAttribute('aria-pressed'), 'true');
+  assert.equal(ui.get('output-resizer').hidden, false);
+  editor.dispatchEvent(new ui.window.KeyboardEvent('keydown', {key:'Escape', bubbles:true}));
+  assert.equal(ui.document.body.classList.contains('editor-maximized'), false);
+  assert.equal(ui.get('editor'), editor); assert.equal(editor.value, source);
+  assert.equal(editor.selectionStart, 3); assert.equal(editor.selectionEnd, 12); ui.close();
 });

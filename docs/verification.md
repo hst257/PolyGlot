@@ -134,3 +134,15 @@ Verification:
 Drafts are local to the browser and server origin and retain the current program only. Saving source to a file remains the durable export. Concurrent edited tabs use the most recently saved draft; an unchanged older tab does not overwrite it merely by closing.
 
 This update is local only; no GitHub push was performed.
+
+## Slate workspace redesign — October 25, 2026
+
+The workspace now uses a cool slate/blue theme in both light and dark modes. The desktop layout has a collapsible, searchable program sidebar, a resizable compiler explorer and independently scrolling docked output. The semantic AST shows actual node kinds, names and checked types, with lazy children. Compiler positions navigate into source, and source selections highlight the narrowest matching visible records. Uploaded bytecode does not link into unrelated editor source.
+
+- Full Python regression suite: **259 passed**, including real loopback HTTP operations.
+- Frontend suite: **41 passed**, including the earlier draft/diagnostic tests and new cases for searching and opening examples, sidebar persistence, keyboard pane resizing and limits, compiler/source links, multiline Unicode spans, unrelated bytecode locations, output clearing, theme persistence and focus-mode restoration.
+- JavaScript syntax and diff whitespace checks passed. The compiler, server, worker and artifact format are unchanged.
+- Live in-app browser verification ran `mixed_demo.poly` with its six expected output lines, opened the semantic AST, and navigated from its function node to the complete source range. Dragging the inspector divider increased its width from 600px to 700px; dragging the output divider increased its height from 190px to 260px. Sidebar collapse/restore, light/dark themes and focus-mode Escape restoration worked. Browser warning/error logs were empty.
+- At measured CSS widths of 389px and 769px, document scroll width matched client width. At the smaller width, the Programs drawer searched for array examples, loaded `array_iteration.poly`, closed itself and ran the program with output `1` through `5`. The temporary viewport override was reset. Physical touch-device testing is not claimed.
+
+All assets remain local. The optional Node/jsdom tools are development-only. The previous current-draft storage format remains readable, and the new layout preferences use a separate storage key. Changes are local only; no GitHub push was performed.

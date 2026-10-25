@@ -25,8 +25,10 @@ const PolyglotWorkspace = (() => {
     const column = Math.max(0, (location.column || 1) - 1);
     const text = lines[line - 1];
     const start = offset + Array.from(text).slice(0, column).join("").length;
-    const endColumn = location.end_line === line ? Math.max(column + 1, (location.end_column || column + 2) - 1) : column + 1;
-    const end = offset + Array.from(text).slice(0, endColumn).join("").length;
+    const endLine = Math.max(line, Math.min(lines.length, location.end_line || line));
+    const endColumn = endLine === line ? Math.max(column + 1, (location.end_column || column + 2) - 1) : Math.max(0, (location.end_column || 1) - 1);
+    const endOffset = lines.slice(0, endLine - 1).reduce((n, value) => n + value.length + 1, 0);
+    const end = endOffset + Array.from(lines[endLine - 1]).slice(0, endColumn).join("").length;
     return {start, end: Math.max(start, end), line};
   }
   const valueText = value => typeof value === "string" ? value : JSON.stringify(value) ?? "—";
@@ -34,18 +36,21 @@ const PolyglotWorkspace = (() => {
   function tableData(stage, data) {
     if (stage === "tokens") return {
       headers: ["Token", "Text", "Position"],
+      locations: data.map(t => t.span),
       rows: data.map(t => [t.kind, JSON.stringify(t.text), at(t.span)])
     };
     if (stage === "recognition") return {
       headers: ["Syntax", "Rule", "Position"],
+      locations: data.map(r => r.span),
       rows: data.map(r => [r.candidates?.length ? r.candidates.join(" / ") : r.family,
         r.grammar_rule, at(r.span)])
     };
     if (stage === "symbols") return {
-      headers: ["Name", "Type", "Binding", "Scope", "Storage"],
+      headers: ["Name", "Type", "Binding", "Scope", "Storage", "Source"],
+      locations: data.map(s => s.location),
       rows: data.map(s => [s.name, s.storage === "function" ? `(${s.params.join(", ")}) → ${s.type}` : s.type,
         s.mutable ? "variable" : s.storage === "function" ? "function" : "constant", s.scope,
-        `${s.storage} ${s.slot}`])
+        `${s.storage} ${s.slot}`, at(s.location)])
     };
     return null;
   }
@@ -223,7 +228,7 @@ function replaceEditorText(text, from, to, selection = "end") {
   const end = from + text.length;
   editor.setSelectionRange(selection === "select" ? from : end, end);
 }
-let stages = {}, selectedStage = "recognition", busy = false, examples = {};
+let stages = {}, selectedStage = "recognition", busy = false, examples = {}, inspectionMatchesSource = false;
 let revision = 0, draftTimer, initialized = false, baselineSource = "", baselineFilename = "program.poly";
 let selectedExample = "", rawStage = false, draftNeedsSave = false, draftSaved = true;
 function saveDraftNow() {
@@ -269,6 +274,8 @@ function loadSource(source, filename) {
   baselineSource = source; baselineFilename = filename;
   initialized = true;
   dirty();
+  renderFileList();
+  if (compactLayout()) setSidebar(true);
 }
 window.addEventListener("pagehide", () => { if (initialized) saveDraftNow(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && initialized) saveDraftNow(); });
@@ -278,6 +285,14 @@ window.addEventListener("beforeunload", event => {
 $("filename").addEventListener("input", dirty);
 const stageTitles = {recognition: "Syntax recognition", tokens: "Lexer tokens", ast: "Abstract syntax tree",
   symbols: "Symbols and types", ir: "Typed intermediate representation", bytecode: "VM bytecode"};
+const stageDescriptions = {
+  recognition: "See which syntax each statement uses before it becomes one shared language.",
+  tokens: "The lexer separates your source into names, values, operators and punctuation.",
+  ast: "Explore the structure of your program, with syntax differences normalized away.",
+  symbols: "See each name, its checked type and the scope where it belongs.",
+  ir: "Follow typed operations and explicit control flow before bytecode generation.",
+  bytecode: "Inspect the validated stack instructions executed by Polyglot’s virtual machine."
+};
 const systemTheme = window.matchMedia("(prefers-color-scheme: dark)");
 try {
   const savedTheme = localStorage.getItem("polyglot-theme");
@@ -308,77 +323,160 @@ function setStatus(text, state = "ready") {
 }
 
 const workbench = $("workbench"), resizer = $("output-resizer"), maximizeButton = $("maximize-editor");
-let maximized = false, outputHeight = 220, workspaceScroll = 0, resizeDrag = null;
+const workspace = $("workspace"), inspectorResizer = $("workspace-resizer");
+let maximized = false, outputHeight = 190, workspaceScroll = 0, resizeDrag = null, inspectorDrag = null;
+let inspectorWidth = Math.min(600, Math.max(380, Math.round(window.innerWidth * .32))), sidebarCollapsed = false;
+function compactLayout() { return window.matchMedia("(max-width: 1000px)").matches; }
+function saveLayout() {
+  try { localStorage.setItem("polyglot-layout-v1", JSON.stringify({inspectorWidth, outputHeight, sidebarCollapsed})); } catch { /* Layout remains usable without storage. */ }
+}
+function setSidebar(collapsed, persist = false) {
+  sidebarCollapsed = collapsed;
+  document.body.classList.toggle("sidebar-collapsed", collapsed);
+  const sidebar = $("program-sidebar");
+  if (collapsed && sidebar.contains(document.activeElement)) $("sidebar-toggle").focus();
+  sidebar.hidden = collapsed;
+  $("sidebar-backdrop").hidden = collapsed || !compactLayout();
+  $("sidebar-toggle").setAttribute("aria-expanded", String(!collapsed));
+  $("sidebar-toggle").setAttribute("aria-label", collapsed ? "Show programs" : "Hide programs");
+  resizeInspector(inspectorWidth);
+  if (persist) saveLayout();
+}
+function inspectorBounds() {
+  const width = workspace.clientWidth || window.innerWidth;
+  const sidebar = sidebarCollapsed ? 0 : (width <= 1300 ? 200 : 216);
+  const max = Math.max(300, Math.min(850, width - sidebar - 8 - 400));
+  return {min: Math.min(340, max), max};
+}
+function resizeInspector(width) {
+  if (compactLayout()) return;
+  const bounds = inspectorBounds();
+  inspectorWidth = Math.round(Math.max(bounds.min, Math.min(bounds.max, width)));
+  workspace.style.setProperty("--inspector-width", `${inspectorWidth}px`);
+  inspectorResizer.setAttribute("aria-valuemin", String(bounds.min));
+  inspectorResizer.setAttribute("aria-valuemax", String(bounds.max));
+  inspectorResizer.setAttribute("aria-valuenow", String(inspectorWidth));
+  inspectorResizer.setAttribute("aria-valuetext", `Compiler inspector ${inspectorWidth} pixels wide`);
+}
 function outputBounds() {
-  const available = Math.max(0, workbench.clientHeight - workbench.querySelector(".toolbar").offsetHeight - resizer.offsetHeight);
-  // Keep both panes usable, including short landscape viewports.
+  const available = Math.max(0, workbench.clientHeight - workbench.querySelector(".toolbar").offsetHeight - resizer.offsetHeight - (maximized ? 0 : $("editor-footer")?.offsetHeight || 0));
   const min = Math.min(96, Math.floor(available / 2));
-  const max = Math.max(min, available - Math.min(120, Math.floor(available / 2)));
+  const max = Math.max(min, available - Math.min(140, Math.floor(available / 2)));
   return {min, max};
 }
 function resizeOutput(height) {
-  if (!maximized) return;
-  const {min, max} = outputBounds();
-  outputHeight = Math.round(Math.max(min, Math.min(max, height)));
+  // Layout-less DOM tests still retain the requested size for persistence checks.
+  const bounds = workbench.clientHeight ? outputBounds() : {min: 96, max: 800};
+  outputHeight = Math.round(Math.max(bounds.min, Math.min(bounds.max, height)));
   workbench.style.setProperty("--output-height", `${outputHeight}px`);
-  resizer.setAttribute("aria-valuemin", String(min));
-  resizer.setAttribute("aria-valuemax", String(max));
+  resizer.setAttribute("aria-valuemin", String(bounds.min));
+  resizer.setAttribute("aria-valuemax", String(bounds.max));
   resizer.setAttribute("aria-valuenow", String(outputHeight));
   resizer.setAttribute("aria-valuetext", `Output height ${outputHeight} pixels`);
 }
 function finishOutputResize(event) {
   if (resizeDrag && event?.pointerId !== undefined && event.pointerId !== resizeDrag.pointerId) return;
-  const drag = resizeDrag;
-  resizeDrag = null;
+  const drag = resizeDrag; resizeDrag = null;
   document.body.classList.remove("resizing-output");
   if (drag && resizer.hasPointerCapture(drag.pointerId)) resizer.releasePointerCapture(drag.pointerId);
+  if (drag) saveLayout();
+}
+function finishInspectorResize(event) {
+  if (inspectorDrag && event?.pointerId !== undefined && event.pointerId !== inspectorDrag.pointerId) return;
+  const drag = inspectorDrag; inspectorDrag = null;
+  document.body.classList.remove("resizing-inspector");
+  if (drag && inspectorResizer.hasPointerCapture(drag.pointerId)) inspectorResizer.releasePointerCapture(drag.pointerId);
+  if (drag) saveLayout();
 }
 function setMaximized(next) {
-  finishOutputResize();
+  finishOutputResize(); finishInspectorResize();
   if (next) workspaceScroll = window.scrollY;
   maximized = next;
   document.body.classList.toggle("editor-maximized", next);
-  resizer.hidden = !next;
-  $("resize-help").hidden = !next;
   const label = next ? "Restore editor" : "Maximize editor";
-  maximizeButton.setAttribute("aria-label", label);
-  maximizeButton.setAttribute("title", next ? "Restore editor (Esc)" : label);
+  maximizeButton.setAttribute("aria-label", label); maximizeButton.setAttribute("title", label);
   maximizeButton.setAttribute("aria-pressed", String(next));
   $("maximize-icon").setAttribute("href", next ? "#ph-arrows-in" : "#ph-arrows-out");
-  if (next) resizeOutput(outputHeight);
-  else window.scrollTo(0, workspaceScroll);
-  // Reuse the same textarea, preserving source, selection and native undo history.
-  editor.focus({preventScroll: true});
-  updateEditor();
+  resizeOutput(outputHeight);
+  if (!next) window.scrollTo(0, workspaceScroll);
+  editor.focus({preventScroll: true}); updateEditor();
 }
+$("sidebar-toggle").addEventListener("click", () => setSidebar(!sidebarCollapsed, true));
+$("sidebar-backdrop").addEventListener("click", () => setSidebar(true, true));
 maximizeButton.addEventListener("click", () => setMaximized(!maximized));
 document.addEventListener("keydown", event => {
-  if (event.key === "Escape" && maximized && !event.isComposing) {
-    event.preventDefault(); setMaximized(false);
-    maximizeButton.focus({preventScroll: true});
-  }
+  if (event.key !== "Escape" || event.isComposing || pendingReplacement) return;
+  if (maximized) { event.preventDefault(); setMaximized(false); maximizeButton.focus(); }
+  else if (compactLayout() && !sidebarCollapsed) { event.preventDefault(); setSidebar(true); }
 });
 resizer.addEventListener("pointerdown", event => {
-  if (!maximized || event.button !== 0 || resizeDrag) return;
-  event.preventDefault();
-  resizer.focus({preventScroll: true});
+  if (event.button !== 0 || resizeDrag) return;
+  event.preventDefault(); resizer.focus();
   resizeDrag = {pointerId: event.pointerId, y: event.clientY, height: outputHeight};
-  resizer.setPointerCapture(event.pointerId);
-  document.body.classList.add("resizing-output");
+  resizer.setPointerCapture(event.pointerId); document.body.classList.add("resizing-output");
 });
 resizer.addEventListener("pointermove", event => {
   if (resizeDrag?.pointerId === event.pointerId) resizeOutput(resizeDrag.height + resizeDrag.y - event.clientY);
 });
-for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) resizer.addEventListener(name, finishOutputResize);
-window.addEventListener("blur", finishOutputResize);
-resizer.addEventListener("keydown", event => {
-  const {min, max} = outputBounds();
-  const increment = event.shiftKey ? 48 : 16;
-  const height = {ArrowUp: outputHeight + increment, ArrowDown: outputHeight - increment, Home: min, End: max}[event.key];
-  if (height !== undefined) { event.preventDefault(); resizeOutput(height); }
+inspectorResizer.addEventListener("pointerdown", event => {
+  if (event.button !== 0 || compactLayout() || inspectorDrag) return;
+  event.preventDefault(); inspectorResizer.focus();
+  inspectorDrag = {pointerId: event.pointerId, x: event.clientX, width: inspectorWidth};
+  inspectorResizer.setPointerCapture(event.pointerId); document.body.classList.add("resizing-inspector");
 });
+inspectorResizer.addEventListener("pointermove", event => {
+  if (inspectorDrag?.pointerId === event.pointerId) resizeInspector(inspectorDrag.width + inspectorDrag.x - event.clientX);
+});
+for (const name of ["pointerup", "pointercancel", "lostpointercapture"]) {
+  resizer.addEventListener(name, finishOutputResize); inspectorResizer.addEventListener(name, finishInspectorResize);
+}
+window.addEventListener("blur", () => { finishOutputResize(); finishInspectorResize(); });
+resizer.addEventListener("keydown", event => {
+  const {min, max} = outputBounds(), step = event.shiftKey ? 48 : 16;
+  const value = {ArrowUp: outputHeight + step, ArrowDown: outputHeight - step, Home: min, End: max}[event.key];
+  if (value !== undefined) { event.preventDefault(); resizeOutput(value); saveLayout(); }
+});
+inspectorResizer.addEventListener("keydown", event => {
+  const {min, max} = inspectorBounds(), step = event.shiftKey ? 64 : 24;
+  const value = {ArrowLeft: inspectorWidth + step, ArrowRight: inspectorWidth - step, Home: min, End: max}[event.key];
+  if (value !== undefined) { event.preventDefault(); resizeInspector(value); saveLayout(); }
+});
+try {
+  const layout = JSON.parse(localStorage.getItem("polyglot-layout-v1"));
+  if (Number.isFinite(layout?.inspectorWidth)) inspectorWidth = layout.inspectorWidth;
+  if (Number.isFinite(layout?.outputHeight)) outputHeight = layout.outputHeight;
+  sidebarCollapsed = layout?.sidebarCollapsed === true;
+} catch { /* Defaults are used if storage is unavailable or corrupted. */ }
+setSidebar(compactLayout() || sidebarCollapsed); resizeOutput(outputHeight);
 if (typeof ResizeObserver !== "undefined") new ResizeObserver(() => resizeOutput(outputHeight)).observe(workbench);
-window.addEventListener("resize", () => { finishOutputResize(); resizeOutput(outputHeight); });
+let previousCompactLayout = compactLayout();
+window.addEventListener("resize", () => {
+  const compact = compactLayout();
+  if (compact && !previousCompactLayout) setSidebar(true);
+  previousCompactLayout = compact;
+  finishOutputResize(); finishInspectorResize(); resizeOutput(outputHeight); resizeInspector(inspectorWidth);
+  $("sidebar-backdrop").hidden = sidebarCollapsed || !compactLayout();
+});
+function renderFileList() {
+  const list = $("file-list"), query = $("file-search").value.trim().toLowerCase();
+  list.replaceChildren();
+  const names = Object.keys(examples).filter(name => name.toLowerCase().includes(query));
+  $("file-count").textContent = names.length;
+  for (const name of names) {
+    const button = element("button", undefined, "file-entry");
+    button.type = "button"; button.dataset.example = name; button.title = name;
+    button.setAttribute("aria-current", String(name === $("filename").value));
+    button.append(glyph("file-code"), element("span", name));
+    button.addEventListener("click", () => { $("examples").value = name; $("examples").dispatchEvent(new Event("change")); });
+    list.append(button);
+  }
+  if (!names.length) list.append(element("p", "No matching examples.", "file-empty"));
+}
+$("file-search").addEventListener("input", renderFileList);
+$("clear-output").addEventListener("click", () => {
+  $("output").textContent = "Output cleared. Run a program to start again."; $("output").dataset.empty = "true";
+  $("output-count").textContent = "0"; $("diagnostics").replaceChildren(); $("execution-info").textContent = "";
+});
 
 function updateEditor() {
   if (editorSource !== editor.value) {
@@ -397,6 +495,7 @@ function updateEditor() {
   $("position").textContent = `Line ${low + 1}, column ${cursor - lineStarts[low] + 1}`;
   updateCursorDecoration(low);
   syncEditorScroll();
+  updateInspectionFocus();
 }
 function element(tag, text, className) {
   const node = document.createElement(tag);
@@ -404,7 +503,51 @@ function element(tag, text, className) {
   if (className) node.className = className;
   return node;
 }
-function renderTable(parent, headers, rows) {
+function glyph(name) {
+  const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  icon.classList.add("icon"); icon.setAttribute("aria-hidden", "true");
+  const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  use.setAttribute("href", `#ph-${name}`); icon.append(use); return icon;
+}
+function navigateSource(location) {
+  const range = PolyglotWorkspace.sourceRange(editor.value, location);
+  editor.focus({preventScroll: true}); editor.setSelectionRange(range.start, range.end);
+  editor.scrollTop = Math.max(0, (range.line - 3) * 24); updateEditor();
+}
+function attachSource(node, location) {
+  if (!inspectionMatchesSource || !location || !Number.isFinite(location.line)) return;
+  const range = PolyglotWorkspace.sourceRange(editor.value, location);
+  node.dataset.sourceStart = range.start; node.dataset.sourceEnd = range.end;
+}
+function sourceLink(location, includeColumn = false) {
+  const label = includeColumn ? `${location.line}:${location.column || 1}` : `L${location.line}`;
+  if (!inspectionMatchesSource) return element("span", label, "source-location");
+  const button = element("button", label, "source-link");
+  button.type = "button";
+  button.setAttribute("aria-label", `Go to source line ${location.line}, column ${location.column || 1}`);
+  button.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); navigateSource(location); });
+  return button;
+}
+function updateInspectionFocus() {
+  const nodes = [...$("stage-data").querySelectorAll("[data-source-start]")].filter(node => {
+    for (let child = node, parent = child.parentElement; parent; child = parent, parent = parent.parentElement) {
+      if (parent.tagName === "DETAILS" && !parent.open && child.tagName !== "SUMMARY") return false;
+    }
+    return true;
+  });
+  const cursor = editor.selectionStart;
+  let shortest = Infinity;
+  for (const node of nodes) {
+    node.classList.remove("source-match");
+    const start = Number(node.dataset.sourceStart), end = Number(node.dataset.sourceEnd);
+    if (cursor >= start && cursor < end) shortest = Math.min(shortest, end - start);
+  }
+  for (const node of nodes) {
+    const start = Number(node.dataset.sourceStart), end = Number(node.dataset.sourceEnd);
+    if (cursor >= start && cursor < end && end - start === shortest) node.classList.add("source-match");
+  }
+}
+function renderTable(parent, headers, rows, locations = []) {
   const table = element("table", undefined, "stage-table");
   const caption = element("caption", `${rows.length.toLocaleString()} ${rows.length === 1 ? "entry" : "entries"}`);
   table.append(caption);
@@ -417,11 +560,17 @@ function renderTable(parent, headers, rows) {
     const end = Math.min(shown + 200, rows.length);
     for (; shown < end; shown++) {
       const row = element("tr");
-      rows[shown].forEach(value => row.append(element("td", PolyglotWorkspace.valueText(value))));
+      const location = locations[shown]; attachSource(row, location);
+      rows[shown].forEach((value, index) => {
+        const cell = element("td", PolyglotWorkspace.valueText(value));
+        if (location && index === rows[shown].length - 1) { cell.replaceChildren(sourceLink(location, true)); }
+        row.append(cell);
+      });
       body.append(row);
     }
     more.textContent = `Show next ${Math.min(200, rows.length - shown)} (${shown} of ${rows.length})`;
     more.hidden = shown >= rows.length;
+    updateInspectionFocus();
   };
   more.addEventListener("click", appendPage); parent.append(more); appendPage();
 }
@@ -429,31 +578,53 @@ function renderTree(parent, key, value, depth = 0) {
   if (value === null || typeof value !== "object") {
     parent.append(element("div", `${key}: ${PolyglotWorkspace.valueText(value)}`, "tree-value")); return;
   }
+  if (value.kind && value.data) {
+    const details = element("details", undefined, "tree-node ast-node"), summary = element("summary");
+    summary.append(element("span", value.kind, "node-kind"));
+    const name = value.data.name ?? value.data.op ?? (value.kind === "Literal" ? JSON.stringify(value.data.value) : "");
+    if (name !== "") summary.append(element("span", ` ${name}`, "node-name"));
+    if (value.meta?.type) summary.append(element("span", ` : ${value.meta.type}`, "node-type"));
+    if (value.span?.line) summary.append(sourceLink(value.span));
+    attachSource(summary, value.span); details.append(summary);
+    const children = element("div", undefined, "tree-children"); details.append(children); parent.append(details);
+    let loaded = false;
+    const populate = () => {
+      if (loaded || !details.open) return;
+      loaded = true;
+      for (const [name, field] of Object.entries(value.data)) {
+        if (name === "name" || name === "op" || (value.kind === "Literal" && name === "value")) continue;
+        renderTree(children, name, field, depth + 1);
+      }
+      if (!children.childNodes.length) children.append(element("div", "Leaf expression", "tree-value"));
+      updateInspectionFocus();
+    };
+    details.addEventListener("toggle", populate);
+    if (depth < 2) { details.open = true; populate(); }
+    return;
+  }
   const details = element("details", undefined, "tree-node");
-  const label = value.kind || (Array.isArray(value) ? `${value.length} items` : "fields");
-  details.append(element("summary", `${key} · ${label}${value.meta?.type ? ` : ${value.meta.type}` : ""}`));
+  details.append(element("summary", `${key} · ${Array.isArray(value) ? `${value.length} items` : "details"}`));
   const children = element("div", undefined, "tree-children"); details.append(children); parent.append(details);
-  let populated = false;
+  let loaded = false;
   const populate = () => {
-    if (populated || !details.open) return;
-    populated = true;
-    const entries = Object.entries(value);
-    let shown = 0;
+    if (loaded || !details.open) return;
+    loaded = true;
+    const entries = Object.entries(value); let shown = 0;
     const more = element("button", "Show more", "stage-more");
     const page = () => {
       const end = Math.min(shown + 100, entries.length);
       for (; shown < end; shown++) renderTree(children, ...entries[shown], depth + 1);
-      more.hidden = shown >= entries.length;
-      children.append(more);
+      more.hidden = shown >= entries.length; children.append(more); updateInspectionFocus();
     };
     more.addEventListener("click", page); page();
   };
   details.addEventListener("toggle", populate);
-  if ((depth < 2 && !["span", "meta"].includes(key)) || (key === "body" && depth < 3)) { details.open = true; populate(); }
+  if (depth < 2 || (key === "body" && depth < 3)) { details.open = true; populate(); }
 }
+
 function renderStage(parent, stage, data) {
   const table = PolyglotWorkspace.tableData(stage, data);
-  if (table) { renderTable(parent, table.headers, table.rows); return; }
+  if (table) { renderTable(parent, table.headers, table.rows, table.locations); return; }
   if (stage === "ast") { renderTree(parent, "Program", data); return; }
   if (stage === "ir" || stage === "bytecode") {
     const functions = stage === "ir" ? data : data.functions;
@@ -480,7 +651,7 @@ function renderStage(parent, stage, data) {
         const rows = instructions.map((instruction, i) => [i, instruction.op,
           stage === "ir" ? Object.entries(instruction).filter(([k]) => !["op", "source"].includes(k)).map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(" · ") : instruction.args.map(PolyglotWorkspace.valueText).join(", "),
           instruction.source ? `${instruction.source.line}:${instruction.source.column}` : "—"]);
-        renderTable(details, ["#", "Instruction", "Operands", "Position"], rows);
+        renderTable(details, ["#", "Instruction", "Operands", "Position"], rows, instructions.map(instruction => instruction.source));
       };
       details.addEventListener("toggle", populate); parent.append(details);
       if (fn === functions[0]) { details.open = true; populate(); }
@@ -495,14 +666,20 @@ function showStage() {
   if (available) {
     if (rawStage) panel.append(element("pre", JSON.stringify(stages[selectedStage], null, 2), "stage-json"));
     else renderStage(panel, selectedStage, stages[selectedStage]);
-  } else panel.textContent = compiled ? "This stage is not available. Fix the reported error to continue." : "Check or run a program to inspect its stages.";
+  } else {
+    const icon = element("div", undefined, "stage-empty-icon"); icon.append(glyph("tree-structure"));
+    panel.append(icon, element("div", compiled ? "A little more to fix" : "Look inside your program", "stage-empty-title"),
+      element("p", compiled ? "Fix the reported error to unlock this compiler stage." : "Run or check your code. Explore its tokens, syntax tree and instructions here.", "stage-empty-help"));
+  }
   panel.dataset.empty = String(!available);
   panel.setAttribute("aria-labelledby", `tab-${selectedStage}`);
   $("stage-title").textContent = stageTitles[selectedStage];
-  $("stage-state").textContent = available ? "Available" : compiled ? "Not available" : "Awaiting compilation";
+  $("stage-description").textContent = stageDescriptions[selectedStage];
+  $("stage-state").textContent = available ? "Compiled" : compiled ? "Unavailable" : "Not compiled";
   $("stage-format").disabled = !available;
   $("stage-format").textContent = rawStage ? "Readable view" : "Raw JSON";
   $("stage-format").setAttribute("aria-pressed", String(rawStage));
+  updateInspectionFocus();
 }
 $("stage-format").addEventListener("click", () => { rawStage = !rawStage; showStage(); });
 function dirty() {
@@ -510,11 +687,12 @@ function dirty() {
   sourcePane.classList.remove("compiler-error");
   $("diagnostics").replaceChildren();
   $("execution-info").textContent = "";
-  stages = {};
+  stages = {}; inspectionMatchesSource = false;
   showStage();
   setStatus("Source changed", "changed");
   updateEditor();
   scheduleDraft();
+  renderFileList();
 }
 function diagnosticText(d) {
   const p = d.location || {};
@@ -533,6 +711,7 @@ async function action(operation, extra = {}) {
     const response = await fetch(`/api/${operation}`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({source:sourceAtStart, filename:filenameAtStart, ...extra})});
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Request failed");
+    inspectionMatchesSource = operation !== "exec" && revisionAtStart === revision;
     stages = revisionAtStart === revision ? result.stages || {} : {};
     sourcePane.classList.toggle("compiler-error", operation !== "exec" && revisionAtStart === revision && !result.ok);
     showStage();
@@ -540,6 +719,7 @@ async function action(operation, extra = {}) {
       revisionAtStart !== revision ? "changed" : result.ok ? "success" : "error");
     $("output").textContent = result.output || (result.ok ? operation === "run" || operation === "exec" ? "Program finished with no output." : "Compilation successful." : "Execution stopped.");
     $("output").dataset.empty = String(!result.output);
+    $("output-count").textContent = String(result.output ? result.output.replace(/\n$/, "").split("\n").length : 0);
     $("execution-info").textContent = result.steps ? `${result.steps.toLocaleString()} VM instructions` : "";
     for (const d of revisionAtStart === revision ? result.diagnostics || [] : []) {
       const item = document.createElement("button");
@@ -673,6 +853,7 @@ if (restored) {
 }
 fetch("/api/examples").then(r => { if (!r.ok) throw new Error("Examples could not be loaded."); return r.json(); }).then(data => {
   examples = data;
+  renderFileList();
   for (const name of Object.keys(data)) { const option = document.createElement("option"); option.value = name; option.textContent = name; $("examples").append(option); }
   if (!initialized) {
     const first = Object.keys(data)[0];
@@ -684,6 +865,7 @@ fetch("/api/examples").then(r => { if (!r.ok) throw new Error("Examples could no
       baselineSource = editor.value; baselineFilename = selectedExample;
     }
   }
+  renderFileList();
 }).catch(error => { setStatus(error.message, "error"); });
 showStage();
 }
