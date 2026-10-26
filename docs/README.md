@@ -22,3 +22,4 @@
 - [Verification results](verification.md)
 - [Current presentation](../presentation/README.md)
 - [Final project report](../report/PolyGlot_Final_Project_Report.docx): concise Review 3 report with working screenshots and project links.
+- [Submission report with selected code](../report/PolyGlot_Review_3_Report_With_Code.pdf): supplied report with the implementation appendix; [editable DOCX](../report/PolyGlot_Review_3_Report_With_Code.docx).
