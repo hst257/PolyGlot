@@ -15,8 +15,8 @@ From the repository folder:
 
 ```sh
 python3 -m pytest -q
-npm ci
-npm test
+npm --prefix tests/web ci
+npm --prefix tests/web test
 python3 tools/build_pages.py
 ```
 
@@ -56,4 +56,4 @@ The first browser execution downloads the runtime. An outer deadline terminates 
 
 The deployment workflow needs repository Pages administration to enable GitHub Actions as its source. See the [hosting instructions](../README.md#hosted-browser-version-github-pages) for setup.
 
-Historical interface screenshots and superseded running-session notes have been removed. Git history retains earlier verification records. Current scope and limitations are documented in [the language specification](language.md), [architecture](architecture.md) and [editor maintenance notes](highlighting.md).
+Historical interface screenshots and superseded running-session notes have been removed. Git history retains earlier verification records. Current scope and limitations are documented in [the language specification](compiler/language.md), [architecture](compiler/architecture.md) and [editor maintenance notes](interface/highlighting.md).

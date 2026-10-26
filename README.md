@@ -72,11 +72,11 @@ Open **Project walkthrough** in Programs and choose a demo. **Load & run demo** 
 
 The pipeline ribbon shows actual representation sizes and whether each stage is available, stopped or blocked. Syntax recognition and AST construction are views of the same parser pass. **Check** and **Build** compile without running the VM; **Run** adds execution. The VM view reports real output and executed instruction count, not a step-by-step trace. Uploaded artifacts expose bytecode and execution without claiming source stages are available.
 
-The IR view uses readable three-address notation (`t2 = t0 + t1 : int`) and the bytecode view explains each instruction's stack effect. Source links and complete Raw JSON remain available. Expand the input/output disclosure above a view for a short explanation of its role. See [the demo script](docs/demo.md) and [design references](docs/ui-design.md#reference-informed-compiler-lab) for presentation guidance.
+The IR view uses readable three-address notation (`t2 = t0 + t1 : int`) and the bytecode view explains each instruction's stack effect. Source links and complete Raw JSON remain available. Expand the input/output disclosure above a view for a short explanation of its role. See [the demo script](docs/demo.md) and [design references](docs/interface/ui-design.md#reference-informed-compiler-lab) for presentation guidance.
 
 The compiler now applies **real IR optimization** before bytecode generation: local constant folding, constant-branch simplification, unreachable-code removal and safe dead-constant removal using control flow, liveness and next-use analysis. This changes the generated instructions while preserving program output and reachable runtime checks. For example, `print((2 + 3) * 4)` prints `20` using 5 VM instructions instead of 17.
 
-Use `inspect --optimized-ir --optimization` to inspect the executed IR and actual pass counts, or `--no-optimize` on check/run/build/inspect to compare the original compilation. The existing IR view retains the original lowering output; Bytecode shows the generated executable instructions. See [architecture](docs/architecture.md#ir-optimization) for the conservative scope and bounds.
+Use `inspect --optimized-ir --optimization` to inspect the executed IR and actual pass counts, or `--no-optimize` on check/run/build/inspect to compare the original compilation. The existing IR view retains the original lowering output; Bytecode shows the generated executable instructions. See [architecture](docs/compiler/architecture.md#ir-optimization) for the conservative scope and bounds.
 
 ## CLI
 
@@ -117,11 +117,11 @@ node --test tests/web/highlighting.test.cjs tests/web/workspace.test.cjs
 For the complete editor interaction suite, optionally install the development-only DOM test library (Node 22.22.2+, 24.15+, or 26+ is required by jsdom):
 
 ```sh
-npm ci
-npm test
+npm --prefix tests/web ci
+npm --prefix tests/web test
 ```
 
-These tests exercise the actual editor with real compiler responses, draft recovery, replacement controls, stale diagnostics, Unicode selections, all inspection views and table pagination. Set `PYTHON` if your Python command differs from the platform default. Node packages are used only for development; running the compiler and IDE still requires only Python.
+The npm configuration and dependency lockfile live beside the frontend tests in `tests/web/`. These tests exercise the actual editor with real compiler responses, draft recovery, replacement controls, stale diagnostics, Unicode selections, all inspection views and table pagination. Set `PYTHON` if your Python command differs from the platform default. Node packages are used only for development; running the compiler and IDE still requires only Python.
 
 Pytest uses `src/` automatically. HTTP integration tests connect only to loopback and spawn real compiler workers. In a restricted environment that forbids local sockets, run `python -m pytest -q -m "not network"`; run the complete suite in an environment that permits loopback connections.
 
@@ -193,15 +193,17 @@ Unannotated functions, advanced error recovery, classes, other collection types,
 
 ## Documentation
 
-- [Language specification and support matrix](docs/language.md)
-- [Supported grammar](docs/grammar.ebnf)
-- [Architecture and extension points](docs/architecture.md)
-- [IR, bytecode and artifact format](docs/bytecode.md)
-- [Diagnostics and limits](docs/diagnostics.md)
+[Documentation index](docs/README.md) groups compiler specifications, interface notes, demonstrations and verification.
+
+- [Language specification and support matrix](docs/compiler/language.md)
+- [Supported grammar](docs/compiler/grammar.ebnf)
+- [Architecture and extension points](docs/compiler/architecture.md)
+- [IR, bytecode and artifact format](docs/compiler/bytecode.md)
+- [Diagnostics and limits](docs/compiler/diagnostics.md)
 - [Professor demonstration script](docs/demo.md)
 - [Actual verification results](docs/verification.md)
-- [UI design and icon maintenance](docs/ui-design.md)
-- [Ember highlighting and editor maintenance](docs/highlighting.md)
+- [UI design and icon maintenance](docs/interface/ui-design.md)
+- [Ember highlighting and editor maintenance](docs/interface/highlighting.md)
 
 ## Project layout
 
@@ -209,8 +211,8 @@ Unannotated functions, advanced error recovery, classes, other collection types,
 | --- | --- |
 | `src/polyglot/` | Compiler stages, parser, artifact validation, VM, CLI and local IDE |
 | `examples/` | Valid programs and intentional error examples |
-| `tests/` | Compiler, HTTP and frontend regression tests |
-| `docs/` | Language, architecture, demonstrations and current verification |
+| `tests/` | Python compiler/HTTP tests and frontend tests in `tests/web/` |
+| [Documentation](docs/README.md) | Compiler specifications, interface notes, demos and verification |
 | `tools/` | GitHub Pages builder and icon maintenance |
 | [Presentations](presentation/README.md) | Current slides and PDF preview |
 | `third_party/` | Original bundled assets and required licenses |
