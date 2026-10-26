@@ -33,10 +33,7 @@ class Handler(BaseHTTPRequestHandler):
             return self.json(403, {"error": "Use the local IDE address."})
         if self.path == "/api/examples":
             return self.json(200, EXAMPLES)
-        if self.path == "/api/syllabus":
-            from ..teaching import syllabus
-            return self.json(200, syllabus())
-        files = {"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/coursework.js": ("coursework.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
+        files = {"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/style.css": ("style.css", "text/css")}
         if self.path not in files:
             return self.json(404, {"error": "Not found"})
         name, mime = files[self.path]

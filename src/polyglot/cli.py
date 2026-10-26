@@ -27,6 +27,8 @@ def main(argv=None) -> int:
         command = commands.add_parser(name)
         command.add_argument("file", type=Path)
         command.add_argument("--json", action="store_true", help="Structured output/diagnostics")
+        if name != "exec":
+            command.add_argument("--no-optimize", action="store_true", help="Generate bytecode from original typed IR")
         if name in ("run", "exec"):
             command.add_argument("--steps", type=int, default=1_000_000)
             command.add_argument("--recursion", type=int, default=64)
@@ -35,7 +37,7 @@ def main(argv=None) -> int:
         if name == "build":
             command.add_argument("-o", "--output", type=Path, required=True)
         if name == "inspect":
-            for flag in ("tokens", "syntax", "ast", "symbols", "ir", "bytecode", "analysis"):
+            for flag in ("tokens", "syntax", "ast", "symbols", "ir", "bytecode", "optimized-ir", "optimization"):
                 command.add_argument("--" + flag, action="store_true")
     serve = commands.add_parser("serve")
     serve.add_argument("--port", type=int, default=8765)
@@ -52,7 +54,7 @@ def main(argv=None) -> int:
         if args.command == "exec":
             artifact = loads(text)
         else:
-            compilation = compile_source(text, str(args.file))
+            compilation = compile_source(text, str(args.file), optimize=not args.no_optimize)
             if not compilation["ok"]:
                 report(compilation["diagnostics"], args.json)
                 return 3
@@ -64,11 +66,8 @@ def main(argv=None) -> int:
             args.output.write_text(dumps(artifact), encoding="utf-8")
             print(json.dumps({"ok": True, "artifact": str(args.output)}) if args.json else f"Built {args.output}")
         elif args.command == "inspect":
-            selected = [k for k in ("tokens", "syntax", "ast", "symbols", "ir", "bytecode", "analysis") if getattr(args, k)]
+            selected = [k for k in ("tokens", "syntax", "ast", "symbols", "ir", "bytecode", "optimized_ir", "optimization") if getattr(args, k)]
             stages = compilation["stages"]
-            if args.analysis:
-                from .analysis import analyze_ir
-                stages["analysis"] = analyze_ir(stages["ir"])
             value = {k: stages["recognition" if k == "syntax" else k] for k in selected} if selected else stages
             print(json.dumps(value, indent=2, ensure_ascii=False))
         else:

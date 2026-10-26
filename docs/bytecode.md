@@ -23,6 +23,8 @@ Every instruction preserves source location/excerpt. Value-producing instruction
 
 Short-circuit expressions use branches rather than eagerly executing both operands. Range arguments are evaluated once and retained in temporary slots. Positive and negative steps use separate comparisons. Continue targets the loop update; break targets the exit.
 
+Original typed IR is preserved for inspection. Optimization folds proven primitive constants, simplifies constant branches and removes unreachable blocks/dead constant temporaries before the code generator runs. `optimized_ir` records the form used for bytecode; source mappings and artifact version remain compatible.
+
 ## Stack instruction reference
 
 | Instruction | Operands | Stack effect |
@@ -50,7 +52,7 @@ Short-circuit expressions use branches rather than eagerly executing both operan
 | `ARRAY_LENGTH` | none | pop array, push length |
 | `ARRAY_SIZE_CHECK` | none | pop expected length and array; require matching length |
 
-IR temporaries map to local slots after declared locals. Calls place parameters in the first local slots of a fresh frame. Each frame has its own instruction pointer and operand stack. Storage starts uninitialized. Value-returning functions end with an unreachable trap as a defensive guard.
+IR temporaries map to local slots after declared locals. Calls place parameters in the first local slots of a fresh frame. Each frame has its own instruction pointer and operand stack. Storage starts uninitialized. Lowering appends a defensive trap to value-returning functions; optimization may remove it after proving it unreachable.
 
 ## Artifact format
 

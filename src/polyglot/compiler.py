@@ -9,6 +9,7 @@ from .ir import Lowerer
 from .codegen import generate
 from .artifact import dumps, ArtifactError
 from .diagnostics import PolyglotError, Diagnostic
+from .optimizer import optimize_functions
 
 
 def serializable(value):
@@ -21,7 +22,9 @@ def serializable(value):
     return value
 
 
-def compile_source(text: str, filename: str = "program.poly") -> dict:
+def compile_source(text: str, filename: str = "program.poly", *, optimize: bool = True) -> dict:
+    if type(optimize) is not bool:
+        raise ValueError("optimize must be a Boolean")
     source = Source(text, filename)
     stages = {}
     try:
@@ -40,6 +43,11 @@ def compile_source(text: str, filename: str = "program.poly") -> dict:
         stages["ast"] = serializable(tree)
         functions = Lowerer(source, analyzer).lower(tree)
         stages["ir"] = serializable(functions)
+        if optimize:
+            functions, stages["optimization"] = optimize_functions(functions)
+        else:
+            stages["optimization"] = {"enabled": False, "functions": [], "passes": []}
+        stages["optimized_ir"] = serializable(functions)
         artifact = generate(functions, symbols)
         dumps(artifact)
         stages["bytecode"] = artifact

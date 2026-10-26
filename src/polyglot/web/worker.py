@@ -6,7 +6,6 @@ from ..compiler import compile_source
 from ..artifact import loads, dumps, ArtifactError
 from ..diagnostics import Diagnostic, PolyglotError
 from ..vm import run, Limits
-from ..analysis import analyze_ir
 
 
 def execution_limits(payload):
@@ -28,9 +27,6 @@ def execution_limits(payload):
 def execute_job(operation: str, payload: dict) -> dict:
     location = {"filename": payload.get("filename", "program.poly"), "line": 1, "column": 1, "excerpt": ""}
     try:
-        teaching = payload.get("teaching", False)
-        if type(teaching) is not bool:
-            raise ValueError("teaching must be a Boolean")
         if operation == "exec":
             artifact_text = payload.get("artifact")
             if not isinstance(artifact_text, str):
@@ -42,23 +38,20 @@ def execute_job(operation: str, payload: dict) -> dict:
             filename = payload.get("filename", "program.poly")
             if not isinstance(source, str) or not isinstance(filename, str) or len(filename) > 256:
                 raise ValueError("source and filename must be strings")
-            result = compile_source(source, filename)
+            result = compile_source(source, filename, optimize=payload.get("optimize", True))
             artifact = result["artifact"]
         result["output"] = ""
         if not result["ok"]:
             return result
-        if teaching and "ir" in result["stages"]:
-            result["analysis"] = analyze_ir(result["stages"]["ir"])
         if operation in ("run", "exec"):
-            result.update(run(artifact, execution_limits(payload), trace_limit=120 if teaching else 0))
+            result.update(run(artifact, execution_limits(payload)))
         if operation == "build":
             result["artifact_text"] = dumps(artifact)
         return result
     except PolyglotError as exc:
         if "result" not in locals():
             result = {"stages": {}, "artifact": None}
-        return {**result, "ok": False, "output": getattr(exc, "output", ""), "diagnostics": [asdict(exc.diagnostic)],
-                **({"trace": exc.trace} if hasattr(exc, "trace") else {})}
+        return {**result, "ok": False, "output": getattr(exc, "output", ""), "diagnostics": [asdict(exc.diagnostic)]}
     except (ArtifactError, ValueError, TypeError) as exc:
         return {"ok": False, "output": "", "stages": {}, "artifact": None,
                 "diagnostics": [asdict(Diagnostic("A001", str(exc), location))]}

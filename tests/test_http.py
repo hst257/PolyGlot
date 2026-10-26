@@ -101,15 +101,16 @@ def test_p1_mixed_syntax_and_const_failure_through_http(server):
     assert invalid["diagnostics"][0]["code"] == 'S028'
 
 
-def test_syllabus_and_optional_teaching_results_over_http(server):
-    catalog = json.loads(request(server, '/api/syllabus'))
-    assert len(catalog['modules']) == 6
-    assert 'def expression' in catalog['sources']['expression']['code']
-    assert b'PolyglotCoursework' in request(server, '/coursework.js')
-    result = json.loads(request(server, '/api/run', {'source': 'print(3)\n', 'teaching': True}))
-    assert result['output'] == '3\n'
-    assert result['analysis']['functions'][0]['blocks']
-    assert result['trace']['events'][0]['op'] == 'CONST'
-    with pytest.raises(urllib.error.HTTPError) as error:
-        request(server, '/api/syllabus?file=/etc/passwd')
-    assert error.value.code == 404
+def test_real_optimizer_and_removed_coursework_routes(server):
+    source = 'print((2 + 3) * 4)\n'
+    optimized = json.loads(request(server, '/api/run', {'source': source}))
+    plain = json.loads(request(server, '/api/run', {'source': source, 'optimize': False}))
+    assert optimized['output'] == plain['output'] == '20\n'
+    assert optimized['steps'] == 5 and plain['steps'] == 17
+    assert optimized['stages']['optimization']['enabled']
+    assert not plain['stages']['optimization']['enabled']
+    assert b'coursework-open' not in request(server, '/')
+    for path in ('/api/syllabus', '/coursework.js'):
+        with pytest.raises(urllib.error.HTTPError) as error:
+            request(server, path)
+        assert error.value.code == 404

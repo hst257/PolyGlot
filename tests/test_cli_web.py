@@ -36,12 +36,3 @@ def test_web_worker_uses_same_compiler_and_artifact():
     executed = execute_job("exec", {"artifact": built["artifact_text"]})
     assert executed["output"] == "0\n1\n3\n6\n12\ndone\n"
     assert set(built["stages"]) >= {"tokens", "recognition", "ast", "symbols", "ir", "bytecode"}
-
-
-def test_cli_analysis_exposes_real_ir_blocks(tmp_path, capsys):
-    import json
-    source = tmp_path / 'flow.poly'
-    source.write_text('print(1 + 2)\n')
-    assert main(['inspect', str(source), '--analysis']) == 0
-    value = json.loads(capsys.readouterr().out)
-    assert value['analysis']['functions'][0]['blocks'][0]['def'] == [0, 1, 2]

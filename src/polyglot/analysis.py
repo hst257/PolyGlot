@@ -1,4 +1,4 @@
-"""Optional teaching analyses over real typed IR; never rewrites executable code."""
+"""Basic blocks, reachability, liveness and next use for typed IR optimization."""
 
 from collections import deque
 
@@ -83,7 +83,7 @@ def analyze_function(fn: dict) -> dict:
                 if predecessor not in queued:
                     pending.append(predecessor)
                     queued.add(predecessor)
-    # 5. A natural-loop back edge targets a dominator of its source.
+    # 5. Reachability is structural: no path from entry means no execution.
     reachable, pending = set(), [0]
     while pending:
         bid = pending.pop()
@@ -91,27 +91,16 @@ def analyze_function(fn: dict) -> dict:
             continue
         reachable.add(bid)
         pending.extend(blocks[bid]["successors"])
-    dom = {bid: ({0} if bid == 0 else set(reachable)) for bid in reachable}
-    changed = True
-    while changed:
-        changed = False
-        for bid in sorted(reachable - {0}):
-            parents = [dom[p] for p in blocks[bid]["predecessors"] if p in reachable]
-            value = {bid} | set.intersection(*parents)
-            if value != dom[bid]:
-                dom[bid] = value
-                changed = True
-    back_edges = [edge for edge in edges if edge["from"] in reachable and edge["to"] in dom[edge["from"]]]
     # 6. Reverse-scan next use within each block. Cross-block need is live-out only.
     for block in blocks:
         bid = block["id"]
         block.update({"use": sorted(uses[bid]), "def": sorted(defs[bid]), "live_in": sorted(live_in[bid]),
                       "live_out": sorted(live_out[bid]), "reachable": bid in reachable, "rows": []})
-        next_use = {}
+        next_use = {temp: None for temp in live_out[bid]}
         for n in reversed(range(block["start"], block["end"])):
             read, written = temp_access(code[n])
             block["rows"].append({"index": n, "uses": sorted(read), "defs": sorted(written),
-                                  "next": [{"temp": temp, "at": next_use.get(temp), "live_out": temp in live_out[bid]}
+                                  "next": [{"temp": temp, "at": next_use.get(temp), "live_out": temp in next_use and next_use[temp] is None}
                                            for temp in sorted(read | written)]})
             for temp in written:
                 next_use.pop(temp, None)
@@ -119,19 +108,4 @@ def analyze_function(fn: dict) -> dict:
                 next_use[temp] = n
         block["rows"].reverse()
     return {"id": fn["id"], "name": fn["name"], "blocks": blocks, "edges": edges,
-            "back_edges": back_edges, "worklist_visits": updates}
-
-
-def analyze_ir(functions: list[dict]) -> dict:
-    """Keep optional analysis bounded independently of compiler/execution limits."""
-    results, budget = [], 3000
-    for index, fn in enumerate(functions):
-        size = len(fn["instructions"])
-        if index >= 12 or size > 1500 or size > budget:
-            results.append({"id": fn["id"], "name": fn["name"], "omitted": "Teaching analysis limit reached; compiled code is unchanged."})
-            continue
-        results.append(analyze_function(fn))
-        budget -= size
-    return {"functions": results, "domain": "IR temporaries only; storage slots and interprocedural effects are not liveness variables.",
-            "equations": ["OUT[B] = union(IN[S]) for successors S", "IN[B] = USE[B] union (OUT[B] - DEF[B])"],
-            "note": "Analysis only. No optimization or register allocation is applied."}
+            "worklist_visits": updates}

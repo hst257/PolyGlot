@@ -57,11 +57,3 @@ The Syntax map groups distinctive and shared syntax families without double-coun
 Project walkthrough is a sidebar disclosure containing four existing examples. Loading one runs the real compiler and selects the relevant view; the existing edited-source replacement guard also applies. Phase disclosures explain input, output and key concepts. Previous/Next controls supplement keyboard-operable tabs. The VM view is a result summary; it does not claim instruction stepping, live stack tracing or an optimizer.
 
 At small widths the pipeline scrolls horizontally within its own region and the inspector stays below the editor. The sidebar drawer begins below the ribbon and closes after a demo loads. The existing theme, focus mode, draft recovery and pane resizing remain available.
-
-## Syllabus coursework view
-
-The October 26 Coursework view is a modal workspace with six syllabus modules, explicit coverage labels, optional live analyses and whitelisted implementation excerpts. It uses the same local theme and official Phosphor sprite. Background controls are inert while it is open; focus is trapped, Escape closes it, and source links close it before selecting editor text. The sidebar becomes a horizontal module scroller below 800px. Inner tables, diagrams and code excerpts scroll without widening the page.
-
-Analysis is opt-in through the worker, calculated by a shared Python module, and never rewrites bytecode. CFG cards have real directed connectors and selectable block facts. Next-use information reports only within-block positions and conservative live-out state. VM playback moves through captured pre-instruction snapshots, including complete short examples and clearly bounded prefixes. It is recorded playback, not a paused execution debugger. Source edits and older response revisions invalidate associated data through the existing result lifecycle.
-
-The catalog documents all 35 distinct screenshot topics, including missing LLVM/Lex/DFA/parser-generator/optimizer/register-allocation features. It describes procedural type attributes and Pratt parsing precisely instead of labeling them as different formal algorithms. Details and presentation guidance live in `docs/syllabus.md`.

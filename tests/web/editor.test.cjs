@@ -6,10 +6,6 @@ const {spawnSync} = require('node:child_process');
 const {JSDOM} = require('jsdom');
 const root = path.resolve(__dirname, '../..');
 const html = fs.readFileSync(path.join(root, 'src/polyglot/web/static/index.html'), 'utf8');
-const courseworkScript = fs.readFileSync(path.join(root, 'src/polyglot/web/static/coursework.js'), 'utf8');
-const syllabusResult = spawnSync(process.env.PYTHON || 'python3', ['-c', "import sys,json;sys.path.insert(0,'src');from polyglot.teaching import syllabus;print(json.dumps(syllabus()))"], {cwd:root,encoding:'utf8'});
-assert.equal(syllabusResult.status,0,syllabusResult.stderr);
-const syllabus = JSON.parse(syllabusResult.stdout);
 const script = fs.readFileSync(path.join(root, 'src/polyglot/web/static/app.js'), 'utf8');
 const examples = JSON.parse(fs.readFileSync(path.join(root, 'src/polyglot/web/static/examples.json'), 'utf8'));
 const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
@@ -32,7 +28,6 @@ async function workspace(options = {}) {
       if (options.draft) window.localStorage.setItem('polyglot-draft-v1', options.draft);
       if (options.blockedStorage) Object.defineProperty(window, 'localStorage', {get() { throw new Error('Storage disabled'); }});
       window.fetch = async (url, init) => {
-        if (url === '/api/syllabus') return {ok:true, json:async () => syllabus};
         if (url === '/api/examples') {
           if (options.delayExamples) await new Promise(resolve => { resolveExamples = resolve; });
           return {ok: true, json: async () => examples};
@@ -44,7 +39,6 @@ async function workspace(options = {}) {
     }
   });
   const {window} = dom, document = window.document;
-  const coursework = document.createElement('script'); coursework.textContent = courseworkScript; document.body.append(coursework);
   const app = document.createElement('script'); app.textContent = script; document.body.append(app);
   await turn();
   const get = id => document.getElementById(id);
@@ -308,13 +302,13 @@ test('pipeline distinguishes compilation from execution and invalidates a prior 
   ui.get('tab-execution').click(); assert.match(ui.get('stage-data').textContent, /Compiled, ready to run/);
   ui.get('run').click(); await turn();
   assert.equal(ui.get('tab-execution').dataset.state, 'ready');
-  assert.match(ui.get('stage-data').textContent, /280/);
+  assert.match(ui.get('stage-data').textContent, /278/);
   assert.equal(ui.get('stage-data').querySelector('.execution-output').textContent, '0\n1\n3\n6\n12\ndone\n');
   ui.get('stage-format').click(); const result = JSON.parse(ui.get('stage-data').textContent);
-  assert.equal(result.steps, 280); assert.equal(result.operation, 'run');
+  assert.equal(result.steps, 278); assert.equal(result.operation, 'run');
   ui.input('editor', 'print(7)\n');
   assert.equal(ui.get('tab-execution').dataset.state, 'waiting');
-  assert.equal(ui.get('stage-format').disabled, true); assert.doesNotMatch(ui.get('stage-data').textContent, /280/); ui.close();
+  assert.equal(ui.get('stage-format').disabled, true); assert.doesNotMatch(ui.get('stage-data').textContent, /278/); ui.close();
 });
 
 test('real lexical, parser, semantic and runtime failures mark only the affected phase', async () => {
@@ -372,71 +366,4 @@ test('uploaded artifacts show execution without claiming unavailable source phas
   assert.equal(ui.get('stage-data').querySelectorAll('button.source-link').length, 0);
   ui.get('previous-stage').click(); assert.equal(ui.get('tab-bytecode').getAttribute('aria-selected'),'true');
   ui.get('next-stage').click(); assert.equal(ui.get('next-stage').disabled,true); ui.close();
-});
-
-async function openCoursework(ui, module) {
-  ui.get('coursework-open').click(); await turn();
-  if(module) [...ui.get('coursework-navigation').querySelectorAll('button')].find(b=>b.textContent.includes(module)).click();
-}
-function courseButton(ui, text) { return [...ui.get('coursework-body').querySelectorAll('button')].find(b=>b.textContent===text); }
-
-test('coursework maps all six modules, actual sources and unsupported algorithms honestly', async () => {
-  const ui = await workspace(); await openCoursework(ui);
-  assert.equal(ui.get('coursework-panel').hidden,false);
-  assert.equal(ui.get('coursework-navigation').querySelectorAll('button').length,6);
-  const llvm=[...ui.get('coursework-body').querySelectorAll('.course-topic')].find(d=>d.textContent.includes('LLVM'));
-  assert.match(llvm.textContent,/Not implemented/);
-  const implementation=[...ui.get('coursework-body').querySelectorAll('details')].find(d=>d.querySelector('summary').textContent==='See the actual implementation');
-  implementation.open=true; implementation.dispatchEvent(new ui.window.Event('toggle'));
-  assert.match(implementation.textContent,/def lex/);
-  [...ui.get('coursework-navigation').querySelectorAll('button')].find(b=>b.textContent.includes('Syntax analysis')).click();
-  assert.match(ui.get('coursework-body').textContent,/Pratt/); assert.match(ui.get('coursework-body').textContent,/CLR parsing/);
-  ui.document.dispatchEvent(new ui.window.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));
-  assert.equal(ui.get('coursework-panel').hidden,true); ui.close();
-});
-
-test('coursework basic blocks and live sets come from a real guarded demo and invalidate on edits', async () => {
-  const ui = await workspace(); await openCoursework(ui,'Code analysis');
-  courseButton(ui,'Load mixed_nesting.poly').click(); await turn(); await turn();
-  assert.equal(ui.get('editor').value,examples['mixed_nesting.poly']);
-  assert.equal(ui.get('coursework-panel').hidden,false);
-  assert.ok(ui.get('coursework-body').querySelector('.cfg-block'));
-  assert.ok(ui.get('coursework-body').querySelector('.cfg-edges path'));
-  assert.match(ui.get('coursework-body').textContent,/OUT\[B\]/);
-  const blocks=ui.get('coursework-body').querySelectorAll('.cfg-block');blocks[1].click();
-  assert.match(ui.get('coursework-body').textContent,/B1: data-flow facts/);
-  ui.get('coursework-close').click();ui.input('editor','print(99)\n');await openCoursework(ui,'Code analysis');
-  assert.equal(ui.get('coursework-body').querySelectorAll('.cfg-block').length,0);
-  courseButton(ui,'Load mixed_nesting.poly').click(); await turn();
-  assert.equal(ui.get('coursework-panel').hidden,true);
-  assert.equal(ui.get('replace-source-dialog').hidden,false);
-  ui.get('keep-source').click();await turn();assert.equal(ui.get('editor').value,'print(99)\n');ui.close();
-});
-
-test('coursework exposes typed AST attributes and navigates back to real source', async () => {
-  const ui = await workspace();ui.get('check').click();await turn();await openCoursework(ui,'Semantic analysis');
-  assert.match(ui.get('coursework-body').textContent,/symbol \d+.*global/);
-  const link=[...ui.get('coursework-body').querySelectorAll('.source-link')].find(b=>b.getAttribute('aria-label')==='Go to source line 1, column 1');
-  assert.ok(link); link.click();
-  assert.equal(ui.get('coursework-panel').hidden,true);
-  assert.match(ui.get('editor').value.slice(ui.get('editor').selectionStart,ui.get('editor').selectionEnd),/^total/);ui.close();
-});
-
-test('coursework steps through captured activation records and never fabricates an uncaptured suffix', async () => {
-  const ui = await workspace();await openCoursework(ui,'Code generation');
-  courseButton(ui,'Load activation_records.poly').click();await turn();await turn();
-  assert.equal(ui.get('output').textContent,'6\n');
-  assert.ok(ui.get('coursework-body').querySelector('.activation-frame'));
-  assert.match(ui.get('coursework-body').textContent,/Complete recorded run/);
-  const calls=ui.get('coursework-body').querySelector('select[aria-label="Jump to recorded call or return"]');
-  const firstCall=[...calls.options].find(o=>o.textContent.includes('CALL'));calls.value=firstCall.value;calls.dispatchEvent(new ui.window.Event('change'));
-  courseButton(ui,'Next instruction').click();
-  assert.equal(ui.get('coursework-body').querySelectorAll('.activation-frame').length,2);
-  assert.match(ui.get('coursework-body').textContent,/Current · factorial/);
-  const slider=ui.get('coursework-body').querySelector('input[type="range"]');slider.value=slider.max;slider.dispatchEvent(new ui.window.Event('input'));
-  assert.equal(courseButton(ui,'Next instruction').disabled,true);
-  ui.get('coursework-close').click();ui.input('editor',examples['recursion.poly']);await openCoursework(ui,'Code generation');
-  courseButton(ui,'Record current VM run').click();await turn();
-  assert.match(ui.get('coursework-body').textContent,/recorded prefix/);
-  assert.equal(ui.get('coursework-body').querySelector('input[type=range]').max,'119');ui.close();
 });
