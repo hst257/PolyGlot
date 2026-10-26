@@ -215,6 +215,7 @@ Unannotated functions, advanced error recovery, classes, other collection types,
 | [Documentation](docs/README.md) | Compiler specifications, interface notes, demos and verification |
 | `tools/` | GitHub Pages builder and icon maintenance |
 | [Presentations](presentation/README.md) | Current slides and PDF preview |
+| [Final project report](report/PolyGlot_Final_Project_Report.docx) | Review 3 DOCX report with architecture, implementation, test results and screenshots |
 | `third_party/` | Original bundled assets and required licenses |
 
 Generated builds belong in `build/` or `dist/`. Git ignores these directories and local caches.

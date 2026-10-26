@@ -21,3 +21,4 @@
 - [Demonstration script](demo.md)
 - [Verification results](verification.md)
 - [Current presentation](../presentation/README.md)
+- [Final project report](../report/PolyGlot_Final_Project_Report.docx): concise Review 3 report with working screenshots and project links.
