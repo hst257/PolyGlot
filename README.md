@@ -2,6 +2,30 @@
 
 An offline educational compiler and browser IDE for a **restricted mixed-syntax language** with selected Python, C, C++, Java, JavaScript and BASIC-inspired spellings. It has its own grammar, types, scopes, bytecode and stack VM. It does not compile arbitrary programs from those languages.
 
+## Hosted browser version (GitHub Pages)
+
+The Pages build runs the **same Python compiler and custom VM inside a Web Worker
+using Pyodide/WebAssembly**. Source stays in the browser. Check, Run, Build,
+artifact execution and compiler-stage inspection work without a remote Python
+server. First execution downloads the browser Python runtime, so allow time on a
+slow connection. A modern browser with WebAssembly and module workers is required.
+The local Python server remains available and needs no Pyodide dependency.
+
+The deployment workflow builds static assets and deploys them on pushes to main.
+The repository owner must enable Settings → Pages → Source: GitHub Actions once.
+Build the same static package with:
+
+```sh
+python tools/build_pages.py --download-runtime
+python -m http.server --directory build/pages
+```
+
+The pinned runtime is Pyodide 314.0.7. Deployment downloads its unmodified runtime
+files into the generated site, including attribution and the upstream license.
+Compiler execution uses the shared `execute_job` API, not Python evaluation of
+user `.poly` source. The browser worker has an 8-second job deadline after loading,
+and the VM retains its existing step, recursion, output and execution limits.
+
 ## Run locally
 
 Python 3.11 or newer is required. The compiler and IDE have **no third-party runtime dependencies**. From PowerShell in this repository:
@@ -163,7 +187,7 @@ PRINT "finished"
 
 Choose `p1_mixed.poly`, `javascript_style.poly`, `c_printf.poly`, or `basic_style.poly` in the IDE. The mixed example's expected output is `total 8`, `formatted: 8, 2.500000, ready`, `BASIC output`, `8`, and `done` on separate lines.
 
-Unannotated functions, advanced error recovery, optimization, classes, other collection types, imports and general object/member operations are unsupported. The compiler stops at the first error; it never executes invalid source. Initialization and return analysis are deliberately conservative.
+Unannotated functions, advanced error recovery, classes, other collection types, imports and general object/member operations are unsupported. The compiler stops at the first error; it never executes invalid source. Initialization and return analysis are deliberately conservative.
 
 ## Documentation
 

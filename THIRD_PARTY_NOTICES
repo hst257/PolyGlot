@@ -35,3 +35,13 @@ DESIGN.md contains the supplied AETHER METRICS - Orbital Scheduling reference.
 It credits Neuform staff featured templates and Vanh DesignCode (@vanh).
 Its original attribution is retained in DESIGN.md. The project MIT license
 is not a grant of rights to third-party reference material.
+
+GitHub Pages browser runtime
+---------------------------
+The hosted build redistributes unmodified Pyodide 314.0.7 runtime assets.
+Pyodide contributors and Mozilla, Mozilla Public License 2.0.
+Source, license and third-party notices:
+https://github.com/pyodide/pyodide/tree/314.0.7
+https://github.com/pyodide/pyodide/blob/314.0.7/LICENSE
+The runtime files are downloaded at deployment time and remain separate from
+Polyglot's MIT-licensed source. See tools/pages/PYODIDE-NOTICE.txt.

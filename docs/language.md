@@ -99,4 +99,4 @@ BASIC forms use uppercase LET/PRINT with case-sensitive identifiers. LET introdu
 
 ## Deferred features
 
-BASIC labels/jumps, unannotated functions, multi-error recovery and optimization are not enabled. Multidimensional arrays, other collections, classes, pointers, imports, exceptions and external libraries are unsupported. Block nesting is limited to 100; calls/output accept at most 1000 arguments. Python's integer text-conversion limits can constrain unusually large literals/output; arithmetic still does not use fixed-width integers.
+BASIC labels/jumps, unannotated functions and multi-error recovery are not enabled. The compiler applies conservative IR optimization by default. Multidimensional arrays, other collections, classes, pointers, imports, exceptions and external libraries are unsupported. Block nesting is limited to 100; calls/output accept at most 1000 arguments. Python's integer text-conversion limits can constrain unusually large literals/output; arithmetic still does not use fixed-width integers.

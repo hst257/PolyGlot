@@ -1,0 +1,8 @@
+The hosted application redistributes the unmodified Pyodide 314.0.7 runtime.
+Pyodide contributors and Mozilla. Mozilla Public License 2.0.
+Source and license: https://github.com/pyodide/pyodide/tree/314.0.7
+Full license: https://github.com/pyodide/pyodide/blob/314.0.7/LICENSE
+Pyodide includes CPython and supporting libraries under their respective licenses.
+The upstream source distribution contains their notices and license information.
+This runtime hosts the trusted Polyglot implementation. User .poly source is
+parsed by Polyglot and executed only as its validated bytecode.

@@ -1094,6 +1094,9 @@ function diagnosticText(d) {
   const p = d.location || {};
   return `${p.filename || "program.poly"}:${p.line || 1}:${p.column || 1} · ${d.code}\n${d.message}${p.excerpt ? "\n" + p.excerpt : ""}${d.suggestion ? "\nHelp: " + d.suggestion : ""}${(d.stack || []).map(s => `\n  at ${s.function} (${s.filename}:${s.line})`).join("")}`;
 }
+function compilerRequest(url, options) {
+  return globalThis.PolyglotTransport ? globalThis.PolyglotTransport.request(url, options) : fetch(url, options);
+}
 async function action(operation, extra = {}) {
   if (busy) return;
   busy = true;
@@ -1105,7 +1108,7 @@ async function action(operation, extra = {}) {
   $("diagnostics").replaceChildren();
   const sourceAtStart = editor.value, filenameAtStart = $("filename").value, revisionAtStart = revision;
   try {
-    const response = await fetch(`/api/${operation}`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({source:sourceAtStart, filename:filenameAtStart, ...extra})});
+    const response = await compilerRequest(`/api/${operation}`, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({source:sourceAtStart, filename:filenameAtStart, ...extra})});
     const result = await response.json();
     if (!response.ok) throw new Error(result.error || "Request failed");
     inspectionMatchesSource = operation !== "exec" && revisionAtStart === revision;
@@ -1252,7 +1255,7 @@ if (restored) {
   $("draft-status").textContent = "Draft restored from this browser";
   setStatus("Draft restored", "ready");
 }
-fetch("/api/examples").then(r => { if (!r.ok) throw new Error("Examples could not be loaded."); return r.json(); }).then(data => {
+compilerRequest("/api/examples").then(r => { if (!r.ok) throw new Error("Examples could not be loaded."); return r.json(); }).then(data => {
   examples = data;
   renderFileList();
   for (const name of Object.keys(data)) { const option = document.createElement("option"); option.value = name; option.textContent = name; $("examples").append(option); }

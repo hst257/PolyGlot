@@ -179,3 +179,27 @@ Removed the coursework/module interface, syllabus catalog, teaching-only endpoin
 - `print((2 + 3) * 4)` produces the same `20` output with **17 bytecode instructions unoptimized and 5 optimized**. The original IR remains available; optimized IR and actual pass counts can be inspected through CLI/API results.
 
 Only proven primitive constants are folded. Constant branches can remove unreachable blocks; liveness and definition-sensitive next use remove safe unused constant temporaries. Reachable calls, loads, stores, output, array checks and potentially failing arithmetic/conversions are retained. The artifact version and source-independent execution remain compatible. No GitHub push was performed.
+
+## GitHub Pages browser build — October 26, 2026
+
+Added a static build that packages the original compiler modules and runs the
+shared execute_job API under Pyodide 314.0.7 in a module Web Worker. Runtime assets
+are served from the generated site. The local HTTP compiler path remains intact.
+
+- Python suite: **298 passed**, including existing loopback tests and two static-build checks.
+- Frontend suite: **57 passed**, including three adapter tests for project paths,
+  worker initialization, timeout termination/retry and overlapping jobs.
+- Real WebAssembly Python matched native results on **26 cases**: all bundled
+  examples, unoptimized execution, syntax/runtime errors, lowered VM step limits,
+  build and independent artifact execution.
+- Browser verification at a /PolyGlot/ subpath produced 20 in 5 instructions for
+  the optimized expression, ran p1_mixed.poly with all five expected output lines
+  and 194 VM steps, and reported P010 at column 11 with later phases blocked for
+  print(2 + ). A browser-built artifact executed independently in the native VM.
+- The first browser use downloads the runtime. Compilation never evaluates user
+  .poly source as Python. An outer 8-second job deadline terminates the worker;
+  VM resource limits remain active. No runtime binaries are committed to Git.
+
+The workflow is ready for GitHub Actions deployment. Pages must be enabled by an
+account with repository Pages administration permission before deployment can
+complete. Current push credentials lack that permission.
