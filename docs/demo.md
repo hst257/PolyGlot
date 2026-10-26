@@ -28,3 +28,7 @@ Before presenting, rehearse on the actual laptop without internet, verify Python
 8. Load Braces + indentation or Arrays + shared functions to answer follow-up questions with real examples. For independent artifact execution, use Build .pbc and Open bytecode; earlier source stages correctly become unavailable for an uploaded artifact.
 
 Phase disclosures, Previous/Next and Raw JSON support explanation during a viva. The VM panel summarizes a completed or stopped run; it does not display a live execution trace. Optimization and multi-error recovery remain deferred.
+
+## Presenting the course topics
+
+Open **Coursework** and follow [the syllabus guide](syllabus.md). Module 5 demonstrates real basic blocks, control-flow edges, liveness equations and next-use facts; use its example or analyze your current valid program. Module 6 loads `activation_records.poly` and records a complete factorial(3) run. Jump to its first RETURN_VALUE, then advance once to show the activation record being removed and the value returning to its caller. The coverage rows and actual-source disclosures explain which syllabus algorithms exist and which are future extensions.

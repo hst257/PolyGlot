@@ -35,7 +35,7 @@ def main(argv=None) -> int:
         if name == "build":
             command.add_argument("-o", "--output", type=Path, required=True)
         if name == "inspect":
-            for flag in ("tokens", "syntax", "ast", "symbols", "ir", "bytecode"):
+            for flag in ("tokens", "syntax", "ast", "symbols", "ir", "bytecode", "analysis"):
                 command.add_argument("--" + flag, action="store_true")
     serve = commands.add_parser("serve")
     serve.add_argument("--port", type=int, default=8765)
@@ -64,8 +64,11 @@ def main(argv=None) -> int:
             args.output.write_text(dumps(artifact), encoding="utf-8")
             print(json.dumps({"ok": True, "artifact": str(args.output)}) if args.json else f"Built {args.output}")
         elif args.command == "inspect":
-            selected = [k for k in ("tokens", "syntax", "ast", "symbols", "ir", "bytecode") if getattr(args, k)]
+            selected = [k for k in ("tokens", "syntax", "ast", "symbols", "ir", "bytecode", "analysis") if getattr(args, k)]
             stages = compilation["stages"]
+            if args.analysis:
+                from .analysis import analyze_ir
+                stages["analysis"] = analyze_ir(stages["ir"])
             value = {k: stages["recognition" if k == "syntax" else k] for k in selected} if selected else stages
             print(json.dumps(value, indent=2, ensure_ascii=False))
         else:

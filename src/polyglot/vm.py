@@ -47,8 +47,10 @@ def format_value(value):
     return "true" if value is True else "false" if value is False else str(value)
 
 
-def run(artifact: dict, limits: Limits | None = None) -> dict:
+def run(artifact: dict, limits: Limits | None = None, *, trace_limit: int = 0) -> dict:
     validate(artifact)
+    if type(trace_limit) is not int or not 0 <= trace_limit <= 120:
+        raise ValueError("Trace limit must be an integer from 0 to 120.")
     limits = limits or Limits()
     if (any(type(v) is not int for v in (limits.steps, limits.recursion, limits.output))
             or type(limits.timeout) not in (int, float) or not math.isfinite(limits.timeout)
@@ -59,19 +61,52 @@ def run(artifact: dict, limits: Limits | None = None) -> dict:
     frames = [Frame(fn, [UNINITIALIZED] * fn["local_count"])]
     output, steps, output_size = [], 0, 0
     allocated_elements = 0
+    events = []
+
+    def preview(value):
+        if value is UNINITIALIZED:
+            return {"state": "uninitialized"}
+        if isinstance(value, ArrayValue):
+            return {"type": value.element_type + "[]", "length": len(value.values),
+                    "items": [preview(v) for v in value.values[:8]]}
+        if type(value) is str:
+            return value[:80] + ("…" if len(value) > 80 else "")
+        if type(value) is int and value.bit_length() > 256:
+            return {"type": "int", "bits": value.bit_length(), "preview_omitted": True}
+        return value
+
+    def trace_result():
+        return {"events": events, "limit": trace_limit, "truncated": steps > len(events),
+                "timing": "State before the recorded instruction. First 120 instructions at most; values, labels and frame contents are bounded previews."}
+
     started = time.monotonic()
     while frames:
         frame = frames[-1]
+        ip = frame.ip
         instruction = frame.function["code"][frame.ip]
         frame.ip += 1
         steps += 1
         op, args = instruction["op"], instruction["args"]
+        if trace_limit and len(events) < trace_limit:
+            events.append({"step": steps, "ip": ip, "function": preview(frame.function["name"]), "op": op,
+                           "args": [preview(v) for v in args], "depth": len(frames),
+                           "source": {"filename": instruction["source"]["filename"][:256],
+                                      **{k: v for k, v in instruction["source"].items()
+                                         if k in ("line", "column", "end_line", "end_column") and type(v) is int}},
+                           "globals": [preview(v) for v in globals_[:8]], "globals_omitted": max(0, len(globals_) - 8),
+                           "frames_omitted": max(0, len(frames) - 8),
+                           "frames": [{"function": preview(f.function["name"]), "ip": ip if f is frame else f.ip,
+                                       "locals": [preview(v) for v in f.locals[:8]], "locals_omitted": max(0, len(f.locals) - 8),
+                                       "stack": [preview(v) for v in f.stack[-8:]], "stack_omitted": max(0, len(f.stack) - 8)}
+                                      for f in frames[-8:]]})
 
         def error(code, message):
             stack = [{"function": f.function["name"], **(f.callsite or instruction["source"])}
                      for f in reversed(frames)]
             failure = PolyglotError(Diagnostic(code, message, instruction["source"], stack=stack))
             failure.output = "".join(output)
+            if trace_limit:
+                failure.trace = trace_result()
             raise failure
 
         def checked(value):
@@ -230,4 +265,7 @@ def run(artifact: dict, limits: Limits | None = None) -> dict:
                 error(args[0], args[1])
         except (IndexError, TypeError, ValueError, OverflowError, ZeroDivisionError) as exc:
             error("R007", f"Invalid runtime operation: {exc}")
-    return {"output": "".join(output), "steps": steps}
+    result = {"output": "".join(output), "steps": steps}
+    if trace_limit:
+        result["trace"] = trace_result()
+    return result

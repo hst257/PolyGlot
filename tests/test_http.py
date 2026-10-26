@@ -99,3 +99,17 @@ def test_p1_mixed_syntax_and_const_failure_through_http(server):
     invalid = json.loads(request(server, "/api/run", {"source": 'const x = 1;\nLET x = 2\n'}))
     assert not invalid["ok"] and invalid["artifact"] is None
     assert invalid["diagnostics"][0]["code"] == 'S028'
+
+
+def test_syllabus_and_optional_teaching_results_over_http(server):
+    catalog = json.loads(request(server, '/api/syllabus'))
+    assert len(catalog['modules']) == 6
+    assert 'def expression' in catalog['sources']['expression']['code']
+    assert b'PolyglotCoursework' in request(server, '/coursework.js')
+    result = json.loads(request(server, '/api/run', {'source': 'print(3)\n', 'teaching': True}))
+    assert result['output'] == '3\n'
+    assert result['analysis']['functions'][0]['blocks']
+    assert result['trace']['events'][0]['op'] == 'CONST'
+    with pytest.raises(urllib.error.HTTPError) as error:
+        request(server, '/api/syllabus?file=/etc/passwd')
+    assert error.value.code == 404

@@ -382,7 +382,7 @@ function replaceEditorText(text, from, to, selection = "end") {
   editor.setSelectionRange(selection === "select" ? from : end, end);
 }
 let stages = {}, selectedStage = "recognition", busy = false, examples = {}, inspectionMatchesSource = false;
-let compilationReport = null;
+let compilationReport = null, coursework = null;
 let graphCleanup = null, astPresentation = "diagram";
 let revision = 0, draftTimer, initialized = false, baselineSource = "", baselineFilename = "program.poly";
 let selectedExample = "", rawStage = false, draftNeedsSave = false, draftSaved = true;
@@ -1076,6 +1076,7 @@ function showStage() {
   $("stage-format").textContent = rawStage ? "Readable view" : "Raw JSON";
   $("stage-format").setAttribute("aria-pressed", String(rawStage));
   updateInspectionFocus();
+  coursework?.refresh();
 }
 $("stage-format").addEventListener("click", () => { rawStage = !rawStage; showStage(); });
 function dirty() {
@@ -1100,6 +1101,7 @@ async function action(operation, extra = {}) {
   sourcePane.classList.remove("compiler-error");
   document.querySelectorAll("[data-operation], #upload-artifact").forEach(b => b.disabled = true);
   $("workbench").setAttribute("aria-busy", "true");
+  coursework?.refresh();
   setStatus(operation === "run" || operation === "exec" ? "Running…" : "Compiling…", "busy");
   $("pipeline-summary").textContent = operation === "exec" ? "Executing uploaded artifact…" : "Compiling current source…";
   $("diagnostics").replaceChildren();
@@ -1110,7 +1112,7 @@ async function action(operation, extra = {}) {
     if (!response.ok) throw new Error(result.error || "Request failed");
     inspectionMatchesSource = operation !== "exec" && revisionAtStart === revision;
     stages = revisionAtStart === revision ? result.stages || {} : {};
-    compilationReport = revisionAtStart === revision ? {operation, ok: result.ok, output: result.output || "", steps: result.steps, diagnostics: result.diagnostics || []} : null;
+    compilationReport = revisionAtStart === revision ? {operation, ok: result.ok, output: result.output || "", steps: result.steps, diagnostics: result.diagnostics || [], analysis: result.analysis, trace: result.trace} : null;
     sourcePane.classList.toggle("compiler-error", operation !== "exec" && revisionAtStart === revision && !result.ok);
     showStage();
     setStatus(revisionAtStart !== revision ? "Source changed during compilation" : result.ok ? "Successful" : "Stopped with an error",
@@ -1142,6 +1144,7 @@ async function action(operation, extra = {}) {
     workbench.querySelector(".console-content").scrollTop = 0;
     busy = false;
     $("workbench").setAttribute("aria-busy", "false");
+    coursework?.refresh();
     document.querySelectorAll("[data-operation], #upload-artifact").forEach(b => b.disabled = false);
   }
 }
@@ -1240,6 +1243,22 @@ $("examples").addEventListener("change", async () => {
   if (!await canReplaceSource()) { $("examples").value = selectedExample; return; }
   selectedExample = requestedExample; $("examples").value = requestedExample;
   loadSource(examples[selectedExample], selectedExample);
+});
+coursework = PolyglotCoursework.mount({element, renderTable, sourceLink,
+  irText: PolyglotWorkspace.irText, astIndex: PolyglotWorkspace.astIndex,
+  getState: () => ({stages, report: compilationReport, busy, filename: $("filename").value}),
+  analyze: () => action("inspect", {teaching:true}), record: () => action("run", {teaching:true}),
+  selectStage: name => selectStage($("tab-" + name)),
+  loadExample: async module => {
+    if (busy || !Object.hasOwn(examples, module.example)) return;
+    coursework.close();
+    if (!await canReplaceSource() || busy) return;
+    selectedExample = module.example; $("examples").value = module.example;
+    loadSource(examples[module.example], module.example);
+    selectStage($("tab-" + module.stage));
+    await coursework.open(module.id);
+    await action(module.id === "generation" ? "run" : "inspect", {teaching:true});
+  }
 });
 let restored = null;
 try { restored = PolyglotWorkspace.readDraft(localStorage); } catch { /* The editor works without storage. */ }

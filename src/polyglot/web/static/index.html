@@ -42,6 +42,7 @@
   <span class="header-divider" aria-hidden="true"></span>
   <span class="workspace-label">Compiler design lab</span>
   <div class="header-actions">
+    <button id="coursework-open" aria-controls="coursework-panel"><svg class="icon" aria-hidden="true"><use href="#ph-tree-structure"></use></svg>Coursework</button>
     <span class="local"><svg class="icon" aria-hidden="true"><use href="#ph-shield-check"></use></svg>Local execution</span>
     <span id="status" role="status" data-state="ready">Ready</span>
     <button id="theme-toggle" class="icon-button" aria-label="Switch to dark theme" title="Switch theme">
@@ -155,6 +156,11 @@
 </main>
 <footer class="app-footer"><span class="footer-ready"><span class="connection-dot" aria-hidden="true"></span> Offline · Shared semantics · Custom VM</span><span>Source <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> Tokens <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> AST <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> Semantics <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> IR <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> Bytecode <svg class="icon" aria-hidden="true"><use href="#ph-caret-right"></use></svg> VM</span><span class="footer-shortcut"><kbd>Ctrl / ⌘ ↵</kbd> Run program</span></footer>
 
+<section id="coursework-panel" class="coursework-panel" role="dialog" aria-modal="true" aria-labelledby="coursework-title" hidden>
+  <header class="coursework-heading"><div><h2 id="coursework-title">Compiler coursework lab</h2><p>Your syllabus, the implementation, and evidence from your program.</p></div><button id="coursework-close">Back to workspace</button></header>
+  <div class="coursework-layout"><nav id="coursework-navigation" aria-label="Syllabus modules"></nav><div id="coursework-body" tabindex="0"></div></div>
+</section>
+<script src="/coursework.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

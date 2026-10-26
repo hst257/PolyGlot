@@ -48,6 +48,14 @@ The pipeline ribbon shows actual representation sizes and whether each stage is 
 
 The IR view uses readable three-address notation (`t2 = t0 + t1 : int`) and the bytecode view explains each instruction's stack effect. Source links and complete Raw JSON remain available. Expand the input/output disclosure above a view for a short explanation of its role. See [the demo script](docs/demo.md) and [design references](docs/ui-design.md#reference-informed-compiler-lab) for presentation guidance.
 
+## Syllabus implementation lab
+
+The **Coursework** button maps all six course modules to real code and live evidence. It shows token attributes, Pratt binding powers, checked AST attributes, typed IR, basic-block/control-flow analysis, temporary liveness, next-use information and recorded VM activation records. Each syllabus topic is explicitly marked Implemented, Partial or Not implemented.
+
+Choose **Analyze current program** to compute teaching analyses without executing source, or **Record current VM run** for a bounded real trace. Module 6 provides `activation_records.poly`, a complete short recursive run with visible calls and returns. Source excerpts come from whitelisted implementation functions and include their repository paths/line numbers. Regular Run remains unchanged and untraced.
+
+See [the complete syllabus mapping and presentation instructions](docs/syllabus.md) for algorithms, examples, bounds and missing topics. CLI analysis is available through `python3 run_polyglot.py inspect examples/mixed_nesting.poly --analysis`.
+
 ## CLI
 
 ```powershell
@@ -61,7 +69,7 @@ python .\run_polyglot.py run .\examples\mixed_nesting.poly
 
 The second mandatory example prints `22`. Built `.pbc` JSON artifacts contain everything needed for execution and source-based runtime errors; the source file is not needed by `exec`.
 
-Inspection switches: `--tokens`, `--syntax`, `--ast`, `--symbols`, `--ir`, `--bytecode`. Omit switches to inspect all stages. `--json` enables structured CLI results/diagnostics. Exit codes: 0 success; 2 invalid invocation; 3 compilation failure; 4 runtime failure; 5 file/artifact failure. Program output goes to stdout; errors go to stderr.
+Inspection switches: `--tokens`, `--syntax`, `--ast`, `--symbols`, `--ir`, `--bytecode`, `--analysis`. Omit switches to inspect all compiler stages; `--analysis` adds the optional teaching analyses. `--json` enables structured CLI results/diagnostics. Exit codes: 0 success; 2 invalid invocation; 3 compilation failure; 4 runtime failure; 5 file/artifact failure. Program output goes to stdout; errors go to stderr.
 
 Execution limits are configurable:
 
