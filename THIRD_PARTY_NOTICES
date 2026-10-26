@@ -31,9 +31,9 @@ SOFTWARE.
 
 Supplied visual reference
 -------------------------
-DESIGN.md contains the supplied AETHER METRICS - Orbital Scheduling reference.
+docs/archive/design-reference.md contains the supplied AETHER METRICS - Orbital Scheduling reference.
 It credits Neuform staff featured templates and Vanh DesignCode (@vanh).
-Its original attribution is retained in DESIGN.md. The project MIT license
+Its original attribution is retained in docs/archive/design-reference.md. The project MIT license
 is not a grant of rights to third-party reference material.
 
 GitHub Pages browser runtime

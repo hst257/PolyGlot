@@ -28,11 +28,13 @@ and the VM retains its existing step, recursion, output and execution limits.
 
 ## Run locally
 
-Python 3.11 or newer is required. The compiler and IDE have **no third-party runtime dependencies**. From PowerShell in this repository:
+Python 3.11 or newer is required. The compiler and IDE have **no third-party runtime dependencies**. Open a terminal in the repository folder, then run:
 
-```powershell
-python .\run_polyglot.py serve
+```sh
+python3 run_polyglot.py serve
 ```
+
+On Windows, use `python` instead of `python3`. Keep the terminal open while using the IDE.
 
 Open **http://127.0.0.1:8765**. Select `mixed_demo.poly` and click **Run**. The expected output is:
 
@@ -78,13 +80,13 @@ Use `inspect --optimized-ir --optimization` to inspect the executed IR and actua
 
 ## CLI
 
-```powershell
-python .\run_polyglot.py check .\examples\mixed_demo.poly
-python .\run_polyglot.py run .\examples\mixed_demo.poly
-python .\run_polyglot.py build .\examples\mixed_demo.poly -o .\build\mixed_demo.pbc
-python .\run_polyglot.py exec .\build\mixed_demo.pbc
-python .\run_polyglot.py inspect .\examples\mixed_demo.poly --syntax --symbols --ir
-python .\run_polyglot.py run .\examples\mixed_nesting.poly
+```sh
+python3 run_polyglot.py check examples/mixed_demo.poly
+python3 run_polyglot.py run examples/mixed_demo.poly
+python3 run_polyglot.py build examples/mixed_demo.poly -o build/mixed_demo.pbc
+python3 run_polyglot.py exec build/mixed_demo.pbc
+python3 run_polyglot.py inspect examples/mixed_demo.poly --syntax --symbols --ir
+python3 run_polyglot.py run examples/mixed_nesting.poly
 ```
 
 The second mandatory example prints `22`. Built `.pbc` JSON artifacts contain everything needed for execution and source-based runtime errors; the source file is not needed by `exec`.
@@ -93,22 +95,22 @@ Inspection switches: `--tokens`, `--syntax`, `--ast`, `--symbols`, `--ir`, `--by
 
 Execution limits are configurable:
 
-```powershell
-python .\run_polyglot.py run .\examples\recursion.poly --steps 10000 --recursion 32 --timeout 2 --output-limit 8192
+```sh
+python3 run_polyglot.py run examples/recursion.poly --steps 10000 --recursion 32 --timeout 2 --output-limit 8192
 ```
 
 ## Development and tests
 
 The source-tree launcher avoids installation and works offline. Tests require pytest:
 
-```powershell
+```sh
 python -m pip install pytest
 python -m pytest -q
 ```
 
 Frontend helper and tokenizer tests use Node's built-in runner (development only):
 
-```powershell
+```sh
 node --test tests/web/highlighting.test.cjs tests/web/workspace.test.cjs
 ```
 
@@ -125,7 +127,7 @@ Pytest uses `src/` automatically. HTTP integration tests connect only to loopbac
 
 Optional package installation in a Python environment with packaging tools available:
 
-```powershell
+```sh
 python -m pip install -e ".[dev]"
 polyglot serve
 ```
@@ -150,8 +152,8 @@ Arrays contain one primitive element type, have fixed-length objects, and use ze
 
 Select `arrays_mixed.poly` in the IDE or run:
 
-```powershell
-python .\run_polyglot.py run .\examples\arrays_mixed.poly
+```sh
+python3 run_polyglot.py run examples/arrays_mixed.poly
 ```
 
 Expected output: `15`, `7`, and `[1, 7, 3, 4] 4` on separate lines. New bytecode uses format version 3; legacy scalar version 1 and array version 2 artifacts remain executable.
@@ -199,10 +201,22 @@ Unannotated functions, advanced error recovery, classes, other collection types,
 - [Professor demonstration script](docs/demo.md)
 - [Actual verification results](docs/verification.md)
 - [UI design and icon maintenance](docs/ui-design.md)
-- [Supplied visual reference](DESIGN.md)
+- [Historical visual reference](docs/archive/design-reference.md)
 - [Ember highlighting and editor maintenance](docs/highlighting.md)
 
-Compiler modules live in `src/polyglot/`; the offline interface lives in `src/polyglot/web/static/`. `examples/` contains valid and intentionally invalid programs. Presentation deliverables remain in `presentation/output/`.
+## Project layout
+
+| Location | Contents |
+| --- | --- |
+| `src/polyglot/` | Compiler stages, parser, artifact validation, VM, CLI and local IDE |
+| `examples/` | Valid programs and intentional error examples |
+| `tests/` | Compiler, HTTP and frontend regression tests |
+| `docs/` | Language, architecture, demonstrations and current verification |
+| `tools/` | GitHub Pages builder and icon maintenance |
+| [Presentations](presentation/README.md) | Current slides and PDF preview, with older decks in an archive |
+| `third_party/` | Original bundled assets and required licenses |
+
+Generated builds belong in `build/` or `dist/`. Git ignores these directories and local caches.
 
 ## License
 

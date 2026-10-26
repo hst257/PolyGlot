@@ -2,7 +2,7 @@
 
 ## Direction
 
-The current interface is a compact, viewport-based IDE with a slate and blue palette. The October 25 request to redesign the workspace and change the theme supersedes the older Aether styling and geometry guidance in `DESIGN.md`; that file is retained as a historical reference.
+The current interface is a compact, viewport-based IDE with a slate and blue palette. The October 25 request to redesign the workspace and change the theme supersedes the older Aether styling and geometry guidance in [the archived design reference](archive/design-reference.md); that file is retained as a historical reference.
 
 The editor and compiler explorer share the available width instead of sitting inside large cards. A searchable program list replaces the static introduction and always-visible support information. Output is docked below the editor and remains visible during normal use. The original textarea, native editing, undo history, compiler API and offline assets are preserved.
 
@@ -36,7 +36,7 @@ Tables reveal 200 rows at a time, and tree collections reveal 100 children at a 
 
 Official, regular-weight Phosphor symbols are reused from the existing inline sprite. No icon family, remote font, external asset or runtime package has been added. Originals and licenses remain in `third_party/phosphor/`. `tools/vendor_phosphor.py` regenerates the sprite.
 
-The compiler, server, worker, API and artifact format are unchanged. Node and jsdom are optional development tools for the editor interaction tests; the running app still requires only Python.
+The workspace uses the shared compiler API. Node and jsdom are optional development tools for editor interaction tests; the local application requires only Python. The static browser build runs the same compiler under Pyodide.
 
 ## Reference-informed compiler lab
 
