@@ -29,12 +29,11 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-Supplied visual reference
--------------------------
-docs/archive/design-reference.md contains the supplied AETHER METRICS - Orbital Scheduling reference.
-It credits Neuform staff featured templates and Vanh DesignCode (@vanh).
-Its original attribution is retained in docs/archive/design-reference.md. The project MIT license
-is not a grant of rights to third-party reference material.
+Historical design credit
+------------------------
+An earlier interface used the AETHER METRICS - Orbital Scheduling reference,
+credited to Neuform staff featured templates and Vanh DesignCode (@vanh).
+The reference file and superseded interface assets are no longer distributed.
 
 GitHub Pages browser runtime
 ---------------------------

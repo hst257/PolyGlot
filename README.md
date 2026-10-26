@@ -201,7 +201,6 @@ Unannotated functions, advanced error recovery, classes, other collection types,
 - [Professor demonstration script](docs/demo.md)
 - [Actual verification results](docs/verification.md)
 - [UI design and icon maintenance](docs/ui-design.md)
-- [Historical visual reference](docs/archive/design-reference.md)
 - [Ember highlighting and editor maintenance](docs/highlighting.md)
 
 ## Project layout
@@ -213,7 +212,7 @@ Unannotated functions, advanced error recovery, classes, other collection types,
 | `tests/` | Compiler, HTTP and frontend regression tests |
 | `docs/` | Language, architecture, demonstrations and current verification |
 | `tools/` | GitHub Pages builder and icon maintenance |
-| [Presentations](presentation/README.md) | Current slides and PDF preview, with older decks in an archive |
+| [Presentations](presentation/README.md) | Current slides and PDF preview |
 | `third_party/` | Original bundled assets and required licenses |
 
 Generated builds belong in `build/` or `dist/`. Git ignores these directories and local caches.

@@ -2,7 +2,7 @@
 
 ## Direction
 
-The current interface is a compact, viewport-based IDE with a slate and blue palette. The October 25 request to redesign the workspace and change the theme supersedes the older Aether styling and geometry guidance in [the archived design reference](archive/design-reference.md); that file is retained as a historical reference.
+The interface is a compact, viewport-based IDE with a slate and blue palette.
 
 The editor and compiler explorer share the available width instead of sitting inside large cards. A searchable program list replaces the static introduction and always-visible support information. Output is docked below the editor and remains visible during normal use. The original textarea, native editing, undo history, compiler API and offline assets are preserved.
 

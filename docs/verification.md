@@ -8,7 +8,7 @@ Verified on October 26, 2026. The repository cleanup retains the compiler, runti
 | --- | --- |
 | Complete Python suite, including loopback HTTP workers | 298 passed |
 | Complete frontend suite | 57 passed |
-| Documentation links and archived presentation paths | Checked after cleanup |
+| Documentation links and current presentation paths | Checked after cleanup |
 | Static Pages package | Builds with project-relative assets |
 
 From the repository folder:
